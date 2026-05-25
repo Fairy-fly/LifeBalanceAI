@@ -1,0 +1,21 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+  <qresource prefix="/">
+    <file>style.qss</file>
+    <file>assets/welcome_hero.png</file>
+    <file>assets/welcome_success.png</file>
+    <file>assets/app_logo.png</file>
+    <file>assets/empty_plan.png</file>
+    <file>assets/empty_report.png</file>
+    <file>assets/ai_analysis.png</file>
+    <file>assets/profile_badge.png</file>
+    <file>assets/icon_diet.png</file>
+    <file>assets/icon_exercise.png</file>
+    <file>assets/icon_feedback.png</file>
+    <file>assets/icon_report.png</file>
+    <file>fonts/MiSans-Regular.otf</file>
+    <file>fonts/MiSans-Medium.otf</file>
+    <file>fonts/MiSans-Bold.otf</file>
+    <file>fonts/SmileySans-Oblique.otf</file>
+  </qresource>
+</RCC>

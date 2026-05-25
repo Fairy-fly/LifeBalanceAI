@@ -1,0 +1,350 @@
+#include "reportservice.h"
+#include "aimanager.h"
+#include "databasemanager.h"
+
+#include <QCoreApplication>
+#include <QDate>
+#include <QDateTime>
+#include <QDebug>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QProcess>
+#include <QStandardPaths>
+#include <QStringList>
+
+namespace LifeBalanceAI {
+namespace Services {
+
+ReportService::ReportService(QObject *parent)
+    : QObject(parent)
+{
+    connect(&AIManager::instance(), &AIManager::reportGenerated,
+            this, &ReportService::onReportAiResponse);
+    connect(&AIManager::instance(), &AIManager::imageGenerated,
+            this, &ReportService::onImageGenerated);
+}
+
+bool ReportService::canGenerateReport(int userId, bool adminOverride)
+{
+    auto &db = DatabaseManager::instance();
+    Models::UserInfo info = db.getUserInfo(userId);
+    if (userId <= 0 || info.uid <= 0)
+        return false;
+
+    if (db.getLatestPlanId(userId) < 0)
+        return false;
+
+    const QString todayStr = QDate::currentDate().toString(QStringLiteral("yyyy-MM-dd"));
+    const auto history = getReportHistory(userId);
+    for (const auto &r : history) {
+        if (r.type != QStringLiteral("deep_analysis") && r.createdAt.startsWith(todayStr))
+            return false;
+    }
+
+    if (adminOverride)
+        return true;
+
+    if (info.role == QStringLiteral("Ascendant"))
+        return true;
+
+    return info.streakDays >= 30;
+}
+
+void ReportService::generateReport(int userId, const QString &reportType)
+{
+    m_pendingUserId = userId;
+    m_pendingType = reportType;
+
+    const QString systemPrompt = QStringLiteral(
+        "你是一位专业的健康报告分析师。请根据用户画像、打卡数据和执行情况，"
+        "生成一份简洁、温暖、可行动的健康周报摘要。必须严格输出 JSON 格式，"
+        "不得包含 Markdown 标记。\n\n"
+        "输出格式:\n"
+        "{\n"
+        "  \"summary\": \"总体评价(2-3句话)\",\n"
+        "  \"diet_score\": 饮食评分(1-10的整数),\n"
+        "  \"exercise_score\": 运动评分(1-10的整数),\n"
+        "  \"completion_rate\": 完成率百分比数字,\n"
+        "  \"highlights\": [\"亮点1\", \"亮点2\"],\n"
+        "  \"suggestions\": [\"建议1\", \"建议2\"],\n"
+        "  \"next_week_goal\": \"下周目标建议(一句话)\"\n"
+        "}\n\n"
+        "注意: diet_score 和 exercise_score 必须是 1-10 的整数；"
+        "completion_rate 是百分比数字，例如 85。");
+
+    const QString userPrompt = buildReportPrompt(userId, reportType);
+    if (userPrompt.isEmpty()) {
+        emit reportError(userId, QStringLiteral("无法获取用户数据"));
+        return;
+    }
+
+    AIManager::instance().sendRequest(systemPrompt, userPrompt, QStringLiteral("reportGenerated"));
+}
+
+void ReportService::exportReport(int reportId, const QString &format)
+{
+    Q_UNUSED(format);
+
+    auto &db = DatabaseManager::instance();
+    Models::ReportData report = db.getReportById(reportId);
+    if (report.rid <= 0 || report.aiSummary.isEmpty()) {
+        emit reportError(-1, QStringLiteral("报告未找到"));
+        return;
+    }
+
+    QJsonObject data;
+    data[QStringLiteral("report_id")] = report.rid;
+    data[QStringLiteral("user_id")] = report.uid;
+    data[QStringLiteral("type")] = report.type;
+    data[QStringLiteral("start_date")] = report.startDate;
+    data[QStringLiteral("end_date")] = report.endDate;
+    data[QStringLiteral("ai_summary")] = report.aiSummary;
+    data[QStringLiteral("created_at")] = report.createdAt;
+
+    Models::UserInfo info = db.getUserInfo(report.uid);
+    Models::ProfileData profile = db.getProfile(report.uid);
+    data[QStringLiteral("phone")] = info.phone;
+    data[QStringLiteral("nickname")] = profile.nickname;
+    data[QStringLiteral("age")] = profile.age;
+    data[QStringLiteral("height")] = profile.height;
+    data[QStringLiteral("weight")] = profile.weight;
+    data[QStringLiteral("gender")] = profile.gender;
+
+    m_pendingExportReportId = reportId;
+    m_pendingExportJson = QString::fromUtf8(QJsonDocument(data).toJson(QJsonDocument::Compact));
+
+    // OpenAI image generation is intentionally bypassed for deterministic local PNG export.
+    onImageGenerated(QString());
+}
+
+void ReportService::onImageGenerated(const QString &imagePath)
+{
+    const int reportId = m_pendingExportReportId;
+    m_pendingExportReportId = -1;
+
+    if (!imagePath.isEmpty()) {
+        emit exportCompleted(reportId, imagePath);
+        return;
+    }
+
+    const QString appDir = QCoreApplication::applicationDirPath();
+    const QString outputPath = appDir + QStringLiteral("/report_%1.png").arg(reportId);
+
+    QString scriptPath;
+    const QStringList scriptCandidates = {
+        appDir + QStringLiteral("/resources/export_report.py"),
+        appDir + QStringLiteral("/../resources/export_report.py"),
+        appDir + QStringLiteral("/../../resources/export_report.py"),
+        appDir + QStringLiteral("/../../../resources/export_report.py"),
+        QDir::current().absoluteFilePath(QStringLiteral("resources/export_report.py")),
+        QDir::current().absoluteFilePath(QStringLiteral("LifeBalanceAI_demo/resources/export_report.py"))
+    };
+    for (const QString &candidate : scriptCandidates) {
+        const QFileInfo candidateInfo(QDir::cleanPath(candidate));
+        if (candidateInfo.exists() && candidateInfo.isFile()) {
+            scriptPath = candidateInfo.absoluteFilePath();
+            break;
+        }
+    }
+    if (scriptPath.isEmpty()) {
+        emit reportError(-1, QStringLiteral("导出失败: 未找到 export_report.py 脚本"));
+        return;
+    }
+
+    auto resolveExecutable = [](const QString &candidate) -> QString {
+        const QString trimmed = candidate.trimmed();
+        if (trimmed.isEmpty())
+            return QString();
+
+        const QFileInfo info(trimmed);
+        if (info.exists() && info.isFile())
+            return info.absoluteFilePath();
+
+        return QStandardPaths::findExecutable(trimmed);
+    };
+
+    QString pythonExe = resolveExecutable(QString::fromLocal8Bit(qgetenv("PYTHON")));
+    if (pythonExe.isEmpty()) {
+        const QStringList pythonCandidates = {
+            appDir + QStringLiteral("/python.exe"),
+            appDir + QStringLiteral("/python/python.exe"),
+            appDir + QStringLiteral("/runtime/python/python.exe"),
+            QStringLiteral("python"),
+            QStringLiteral("python3")
+        };
+        for (const QString &candidate : pythonCandidates) {
+            pythonExe = resolveExecutable(candidate);
+            if (!pythonExe.isEmpty())
+                break;
+        }
+    }
+    if (pythonExe.isEmpty()) {
+        emit reportError(-1, QStringLiteral("导出失败: 未找到 Python 运行时"));
+        return;
+    }
+
+    const QString jsonFile = outputPath + QStringLiteral(".json");
+    {
+        QFile jf(jsonFile);
+        if (!jf.open(QFile::WriteOnly | QFile::Text)) {
+            emit reportError(-1, QStringLiteral("导出失败: 无法写入临时数据文件"));
+            return;
+        }
+        jf.write(m_pendingExportJson.toUtf8());
+    }
+    m_pendingExportJson.clear();
+
+    QProcess proc;
+    proc.start(pythonExe, {scriptPath, jsonFile, outputPath, QStringLiteral("png")});
+    if (!proc.waitForStarted(5000)) {
+        QFile::remove(jsonFile);
+        emit reportError(-1, QStringLiteral("导出失败: 无法启动 Python: ") + proc.errorString());
+        return;
+    }
+
+    if (!proc.waitForFinished(30000)) {
+        proc.kill();
+        proc.waitForFinished(1000);
+        QFile::remove(jsonFile);
+        emit reportError(-1, QStringLiteral("导出超时: Python 脚本未在 30 秒内完成"));
+        return;
+    }
+
+    QFile::remove(jsonFile);
+    if (proc.exitCode() == 0 && QFileInfo::exists(outputPath)) {
+        emit exportCompleted(reportId, outputPath);
+        return;
+    }
+
+    const QString err = QString::fromUtf8(proc.readAllStandardError()).trimmed();
+    emit reportError(-1, QStringLiteral("导出失败: ") + (err.isEmpty() ? proc.errorString() : err));
+}
+
+QVector<Models::ReportData> ReportService::getReportHistory(int userId)
+{
+    if (userId > 0)
+        return DatabaseManager::instance().getReportHistory(userId);
+
+    return {};
+}
+
+void ReportService::onReportAiResponse(const QString &jsonResult)
+{
+    const int userId = m_pendingUserId;
+    m_pendingUserId = -1;
+
+    if (jsonResult.isEmpty()) {
+        emit reportError(userId, QStringLiteral("AI 服务超时或 API Key 未配置"));
+        return;
+    }
+
+    QString cleaned = jsonResult;
+    cleaned.remove(QStringLiteral("```json"));
+    cleaned.remove(QStringLiteral("```"));
+    cleaned.remove(QStringLiteral("`json"));
+    cleaned.remove(QStringLiteral("`"));
+    cleaned = cleaned.trimmed();
+
+    const QJsonDocument doc = QJsonDocument::fromJson(cleaned.toUtf8());
+    if (doc.isNull() || !doc.isObject()) {
+        emit reportError(userId, QStringLiteral("AI 返回数据格式异常"));
+        return;
+    }
+
+    Models::ReportData report;
+    report.uid = userId;
+    report.type = m_pendingType;
+    report.startDate = QDate::currentDate().addDays(-7).toString(QStringLiteral("yyyy-MM-dd"));
+    report.endDate = QDate::currentDate().toString(QStringLiteral("yyyy-MM-dd"));
+    report.aiSummary = QString::fromUtf8(doc.toJson(QJsonDocument::Compact));
+    report.createdAt = QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss"));
+
+    if (!DatabaseManager::instance().saveReport(report)) {
+        emit reportError(userId, QStringLiteral("报告保存失败"));
+        return;
+    }
+
+    emit reportGenerated(userId, report);
+}
+
+QString ReportService::buildReportPrompt(int userId, const QString &reportType)
+{
+    auto &db = DatabaseManager::instance();
+    const Models::ProfileData profile = db.getProfile(userId);
+    const Models::UserInfo userInfo = db.getUserInfo(userId);
+
+    const int planId = db.getLatestPlanId(userId);
+    if (planId < 0)
+        return QString();
+
+    const QDate today = QDate::currentDate();
+    const QDate start = today.addDays(-6);
+
+    QStringList daySummaries;
+    int totalSlots = 0;
+    int doneSlots = 0;
+    for (int d = 0; d < 7; ++d) {
+        const QDate date = start.addDays(d);
+        const auto items = db.getItemsForDate(planId, date);
+        if (items.isEmpty())
+            continue;
+
+        int dayDone = 0;
+        QStringList dayItemNames;
+        for (const auto &item : items) {
+            ++totalSlots;
+            if (item.isDone) {
+                ++doneSlots;
+                ++dayDone;
+            }
+            dayItemNames.append(item.content + (item.isDone ? QStringLiteral("(已完成)") : QStringLiteral("(未完成)")));
+        }
+
+        const QString daySummary = date.toString(QStringLiteral("MM-dd"))
+            + QStringLiteral(": ") + dayItemNames.join(QStringLiteral(", "))
+            + QStringLiteral(" [%1/%2]").arg(QString::number(dayDone), QString::number(items.size()));
+        daySummaries.append(daySummary);
+    }
+
+    const int completionRate = totalSlots > 0 ? (doneSlots * 100 / totalSlots) : 0;
+    const QString periodLabel = reportType == QStringLiteral("monthly") ? QStringLiteral("月度") : QStringLiteral("周度");
+
+    QString prompt = QStringLiteral(
+        "=== 用户画像 ===\n"
+        "年龄: %1 | 身高: %2 cm | 体重: %3 kg | 性别: %4\n"
+        "目标: %5\n"
+        "饮食偏好: %6\n"
+        "运动偏好: %7\n"
+        "连续打卡: %8 天 | 累计打卡: %9 次\n\n"
+        "=== 近 7 天执行统计 ===\n"
+        "总时段数: %10 | 已完成: %11 | 完成率: %12%%\n\n"
+        "请根据以上数据生成一份 %13 健康报告。")
+        .arg(QString::number(profile.age),
+             QString::number(profile.height, 'f', 1),
+             QString::number(profile.weight, 'f', 1),
+             profile.gender,
+             profile.goal,
+             profile.dietPref,
+             profile.sportPref,
+             QString::number(userInfo.streakDays),
+             QString::number(userInfo.totalCheckins),
+             QString::number(totalSlots),
+             QString::number(doneSlots),
+             QString::number(completionRate),
+             periodLabel);
+
+    if (!daySummaries.isEmpty()) {
+        prompt += QStringLiteral("\n=== 每日详情 ===\n");
+        for (const QString &daySummary : daySummaries)
+            prompt += daySummary + QStringLiteral("\n");
+    }
+
+    return prompt;
+}
+
+} // namespace Services
+} // namespace LifeBalanceAI

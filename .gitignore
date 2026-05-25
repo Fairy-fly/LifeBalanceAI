@@ -1,0 +1,24 @@
+# Build outputs
+build/
+LifeBalanceAI_demo/build/
+**/build/
+
+# Local secrets and runtime data
+.env
+*.env
+lifebalance.db
+*.db-journal
+
+# Qt Creator and local IDE state
+*.user
+*.user.*
+LifeBalanceAI_demo/.qtcreator/
+
+# Generated exports
+report_*.png
+LifeBalanceAI_demo/report_*.png
+LifeBalanceAI_demo/build/**/report_*.png
+
+# Python/cache artifacts from local tooling
+__pycache__/
+*.py[cod]

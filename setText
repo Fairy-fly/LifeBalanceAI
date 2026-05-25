@@ -1,0 +1,2 @@
+100:        ui->lblDesc6->setText(tr("忘记打卡，连续天数功亏一篏？
+109:        ui->lblDesc6->setWordWrap(true);
