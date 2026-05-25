@@ -258,7 +258,6 @@ QTextEdit#reportDetailText {
 QWidget#dialogAccentBar {
     background: #4CAF7F;
     border-radius: 3px;
-    box-shadow: 0 2px 4px rgba(76, 175, 127, 0.2);
 }
 
 QWidget#dialogAccentBar[class="warn"] {
@@ -531,9 +530,8 @@ QTextEdit:focus,
 QPlainTextEdit:focus,
 QSpinBox:focus,
 QComboBox:focus {
-    border: 2px solid #4CAF7F;
+    border: 1px solid #4CAF7F;
     background: #FFFFFF;
-    box-shadow: 0 0 0 3px rgba(76, 175, 127, 0.15);
 }
 
 QLineEdit:disabled,
@@ -623,8 +621,6 @@ QPushButton:pressed {
 
 QPushButton:focus {
     border: 1px solid #4CAF7F;
-    outline: 2px solid rgba(76, 175, 127, 0.3);
-    outline-offset: 2px;
 }
 
 QPushButton:disabled {
@@ -661,7 +657,6 @@ QPushButton#btnPay6:hover,
 QPushButton[class="primary"]:hover {
     background: #6BC48F;
     border-color: #6BC48F;
-    box-shadow: 0 4px 8px rgba(76, 175, 127, 0.25);
 }
 
 QPushButton#btnLogin:pressed,
@@ -972,7 +967,6 @@ QTabBar::tab {
     background: #F5F5F5;
     color: #666666;
     font-size: 15px;
-    transition: all 150ms ease-out;
 }
 
 QTabBar::tab:hover {
@@ -987,7 +981,6 @@ QTabBar::tab:selected {
     color: #1A1A1A;
     font-weight: 500;
     border-color: #4CAF7F;
-    box-shadow: 0 2px 4px rgba(76, 175, 127, 0.15);
 }
 
 /* Secondary button with better styling */
@@ -1000,7 +993,6 @@ QPushButton[class="secondary"]:hover {
 QPushButton[class="danger"]:hover {
     background: #FFF1F0;
     border-color: #FF7875;
-    box-shadow: 0 2px 4px rgba(255, 120, 117, 0.2);
 }
 
 /* Ghost button hover */
