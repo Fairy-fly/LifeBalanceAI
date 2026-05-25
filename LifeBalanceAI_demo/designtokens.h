@@ -280,3 +280,5 @@ inline QString disabledBg() { return color("#262B32"); }
 } // namespace DarkMode
 
 } // namespace DesignTokens
+
+#endif // DESIGNTOKENS_H
