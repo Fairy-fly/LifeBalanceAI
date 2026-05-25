@@ -206,6 +206,77 @@ inline QString brandFontStack()
     return QStringLiteral("\"Smiley Sans Oblique\", \"Smiley Sans\", \"MiSans Bold\", \"MiSans\", \"Noto Sans SC\", sans-serif");
 }
 
-} // namespace DesignTokens
+// ============ DARK MODE THEME ============
+namespace DarkMode {
 
-#endif // DESIGNTOKENS_H
+// Dark background palette
+inline QString bgWindow() { return color("#0F1419"); }
+inline QString bgPage() { return color("#0F1419"); }
+inline QString bgCard() { return color("#1A1D26"); }
+inline QString bgSoft() { return color("#252A33"); }
+inline QString bgLighter() { return color("#2A2D35"); }
+
+// Dark text palette
+inline QString textTitle() { return color("#F5F5F5"); }
+inline QString textBody() { return color("#E0E0E0"); }
+inline QString textMuted() { return color("#A0A0A0"); }
+inline QString textTertiary() { return color("#707070"); }
+inline QString textDisabled() { return color("#505050"); }
+
+// Dark borders
+inline QString border() { return color("#3A3F48"); }
+inline QString borderLight() { return color("#2A2D35"); }
+inline QString borderStrong() { return color("#4A5058"); }
+inline QString divider() { return borderLight(); }
+
+// Primary colors (brightened for dark mode)
+inline QString primaryDark() { return color("#2D7A5E"); }
+inline QString primary() { return color("#5EC9A1"); }
+inline QString primaryLight() { return color("#7EDAB2"); }
+inline QString primaryLighter() { return color("#9DE5C8"); }
+inline QString primaryLightest() { return color("#1B4033"); }
+
+// Semantic colors (adapted for dark mode)
+inline QString success() { return color("#85CE61"); }
+inline QString successBg() { return color("#274916"); }
+inline QString successBorder() { return color("#3D6B2F"); }
+
+inline QString active() { return color("#FFC069"); }
+inline QString activeBg() { return color("#3D3409"); }
+inline QString activeBorder() { return color("#664D1A"); }
+
+inline QString warning() { return color("#FF9C6E"); }
+inline QString warningBg() { return color("#3D2416"); }
+inline QString warningBorder() { return color("#664033"); }
+
+inline QString error() { return color("#FF7875"); }
+inline QString errorBg() { return color("#3D1F1F"); }
+
+inline QString rest() { return color("#91D5FF"); }
+inline QString restBg() { return color("#1A3A4D"); }
+inline QString restBorder() { return color("#2F5A73"); }
+
+// Health dimensions (brightened for dark mode)
+inline QString dietColor() { return color("#FF7A7A"); }
+inline QString dietLight() { return color("#FF9999"); }
+
+inline QString exerciseColor() { return color("#5FE3D0"); }
+inline QString exerciseLight() { return color("#7FEAE2"); }
+
+inline QString sleepColor() { return color("#9277F8"); }
+inline QString sleepLight() { return color("#AE94FF"); }
+
+inline QString mindfulnessColor() { return color("#B8A3F8"); }
+inline QString socialColor() { return color("#FF89B6"); }
+inline QString workColor() { return color("#85D1FF"); }
+
+// Accent colors
+inline QString accent() { return color("#FFB84D"); }
+inline QString accentLight() { return color("#FFC869"); }
+
+inline QString disabled() { return color("#555555"); }
+inline QString disabledBg() { return color("#262B32"); }
+
+} // namespace DarkMode
+
+} // namespace DesignTokens
