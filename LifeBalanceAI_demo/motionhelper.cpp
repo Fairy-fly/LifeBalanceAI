@@ -1,10 +1,13 @@
 #include "motionhelper.h"
+#include "completionfeedback.h"
 #include "designtokens.h"
 
 #include <QGraphicsOpacityEffect>
 #include <QParallelAnimationGroup>
 #include <QPropertyAnimation>
+#include <QSequentialAnimationGroup>
 #include <QStackedWidget>
+#include <QTimer>
 #include <QWidget>
 
 namespace MotionHelper {
@@ -160,6 +163,141 @@ void animateStackedSwitch(QStackedWidget *stack, int fromIndex, int toIndex, boo
 
     group->start(QAbstractAnimation::DeleteWhenStopped);
 #endif
+}
+
+QPropertyAnimation *createHoverLift(QWidget *widget, int liftDistance, int duration)
+{
+    if (!widget)
+        return nullptr;
+    auto *anim = new QPropertyAnimation(widget, "pos", widget);
+    anim->setDuration(duration);
+    anim->setStartValue(widget->pos());
+    anim->setEndValue(widget->pos() + QPoint(0, -qMax(0, liftDistance)));
+    anim->setEasingCurve(QEasingCurve::OutCubic);
+    return anim;
+}
+
+QPropertyAnimation *createButtonPulse(QWidget *widget, int duration)
+{
+    if (!widget)
+        return nullptr;
+    auto *effect = qobject_cast<QGraphicsOpacityEffect *>(widget->graphicsEffect());
+    if (!effect) {
+        effect = new QGraphicsOpacityEffect(widget);
+        widget->setGraphicsEffect(effect);
+    }
+    auto *anim = new QPropertyAnimation(effect, "opacity", widget);
+    anim->setDuration(duration);
+    anim->setStartValue(0.72);
+    anim->setEndValue(1.0);
+    anim->setEasingCurve(QEasingCurve::OutCubic);
+    return anim;
+}
+
+QPropertyAnimation *createFadeIn(QWidget *widget, int duration)
+{
+    if (!widget)
+        return nullptr;
+    auto *effect = qobject_cast<QGraphicsOpacityEffect *>(widget->graphicsEffect());
+    if (!effect) {
+        effect = new QGraphicsOpacityEffect(widget);
+        widget->setGraphicsEffect(effect);
+    }
+    effect->setOpacity(0.0);
+    auto *anim = new QPropertyAnimation(effect, "opacity", widget);
+    anim->setDuration(duration);
+    anim->setStartValue(0.0);
+    anim->setEndValue(1.0);
+    anim->setEasingCurve(QEasingCurve::OutCubic);
+    QObject::connect(anim, &QPropertyAnimation::finished, widget, [widget]() {
+        widget->setGraphicsEffect(nullptr);
+    });
+    return anim;
+}
+
+QPropertyAnimation *createFadeOut(QWidget *widget, int duration)
+{
+    if (!widget)
+        return nullptr;
+    auto *effect = qobject_cast<QGraphicsOpacityEffect *>(widget->graphicsEffect());
+    if (!effect) {
+        effect = new QGraphicsOpacityEffect(widget);
+        widget->setGraphicsEffect(effect);
+    }
+    effect->setOpacity(1.0);
+    auto *anim = new QPropertyAnimation(effect, "opacity", widget);
+    anim->setDuration(duration);
+    anim->setStartValue(1.0);
+    anim->setEndValue(0.0);
+    anim->setEasingCurve(QEasingCurve::InCubic);
+    return anim;
+}
+
+QPropertyAnimation *createSlideIn(QWidget *widget, const QString &direction, int distance, int duration)
+{
+    if (!widget)
+        return nullptr;
+
+    const QPoint end = widget->pos();
+    QPoint start = end;
+    if (direction.compare(QStringLiteral("left"), Qt::CaseInsensitive) == 0)
+        start.rx() -= distance;
+    else if (direction.compare(QStringLiteral("right"), Qt::CaseInsensitive) == 0)
+        start.rx() += distance;
+    else if (direction.compare(QStringLiteral("up"), Qt::CaseInsensitive) == 0)
+        start.ry() -= distance;
+    else
+        start.ry() += distance;
+
+    widget->move(start);
+    auto *anim = new QPropertyAnimation(widget, "pos", widget);
+    anim->setDuration(duration);
+    anim->setStartValue(start);
+    anim->setEndValue(end);
+    anim->setEasingCurve(QEasingCurve::OutCubic);
+    return anim;
+}
+
+void animateCheckboxToggle(QWidget *checkboxWidget, int duration)
+{
+    auto *anim = createButtonPulse(checkboxWidget, duration);
+    if (anim)
+        anim->start(QAbstractAnimation::DeleteWhenStopped);
+}
+
+void animateButtonClick(QWidget *button, int duration)
+{
+    if (!button)
+        return;
+    const QPoint original = button->pos();
+    auto *down = new QPropertyAnimation(button, "pos", button);
+    down->setDuration(qMax(60, duration / 2));
+    down->setStartValue(original);
+    down->setEndValue(original + QPoint(0, 1));
+    down->setEasingCurve(QEasingCurve::OutCubic);
+
+    auto *up = new QPropertyAnimation(button, "pos", button);
+    up->setDuration(qMax(60, duration / 2));
+    up->setStartValue(original + QPoint(0, 1));
+    up->setEndValue(original);
+    up->setEasingCurve(QEasingCurve::OutCubic);
+
+    auto *sequence = new QSequentialAnimationGroup(button);
+    sequence->addAnimation(down);
+    sequence->addAnimation(up);
+    sequence->start(QAbstractAnimation::DeleteWhenStopped);
+}
+
+void animateCompletionFeedback(QWidget *parent, const QString &message)
+{
+    if (!parent)
+        return;
+    auto *overlay = new CompletionFeedback(parent);
+    overlay->setAttribute(Qt::WA_DeleteOnClose);
+    overlay->setGeometry(parent->rect());
+    overlay->raise();
+    overlay->showCompletionFeedback(message);
+    QTimer::singleShot(1100, overlay, &QWidget::close);
 }
 
 } // namespace MotionHelper

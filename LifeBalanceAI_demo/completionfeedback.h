@@ -1,10 +1,12 @@
 #ifndef COMPLETIONFEEDBACK_H
 #define COMPLETIONFEEDBACK_H
 
-#include <QWidget>
 #include <QPropertyAnimation>
 #include <QSequentialAnimationGroup>
 #include <QString>
+#include <QWidget>
+
+class QPainter;
 
 class CompletionFeedback : public QWidget
 {
@@ -15,7 +17,7 @@ class CompletionFeedback : public QWidget
 public:
     explicit CompletionFeedback(QWidget *parent = nullptr);
 
-    void showCompletionFeedback(const QString &message = "打卡完成！");
+    void showCompletionFeedback(const QString &message = QStringLiteral("打卡完成！"));
     void showAchievementUnlocked(const QString &title, const QString &description);
 
     qreal scale() const { return m_scale; }
@@ -41,9 +43,9 @@ private:
     };
 
     FeedbackType m_type = None;
-    QString m_message = "";
-    QString m_achievementTitle = "";
-    QString m_achievementDescription = "";
+    QString m_message;
+    QString m_achievementTitle;
+    QString m_achievementDescription;
     qreal m_scale = 0.8;
     qreal m_opacity = 1.0;
 

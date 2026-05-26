@@ -38,6 +38,12 @@
 
 #include "welcomeoverlay.h"
 
+#include "circularprogressbar.h"
+
+#include "trendlinechart.h"
+
+#include "calendargridview.h"
+
 
 
 
@@ -164,6 +170,8 @@
 
 
 #include <QListWidget>
+
+#include <QListView>
 
 
 
@@ -1688,13 +1696,14 @@ MainWindow::MainWindow(QWidget *parent)
 
             if (QVBoxLayout *mainL = qobject_cast<QVBoxLayout *>(p4->layout())) {
 
-
-
+#ifdef Q_OS_ANDROID
+                mainL->setSpacing(4);
+                mainL->setContentsMargins(8, 0, 8, 6);
+                mainL->setAlignment(Qt::AlignTop);
+#else
                 mainL->setSpacing(8);
-
-
-
                 mainL->setContentsMargins(12, 10, 12, 10);
+#endif
 
 
 
@@ -1877,7 +1886,9 @@ MainWindow::MainWindow(QWidget *parent)
 
 
 
-    // Legal disclaimer on page_4
+    // Home disclaimer is appended to each plan list instead of being fixed above
+    // the bottom navigation. Keeping it in the scroll content saves first-screen
+    // space on phones.
 
 
 
@@ -1898,28 +1909,6 @@ MainWindow::MainWindow(QWidget *parent)
 
 
             if (p4Layout) {
-
-
-
-                QLabel *disclaimer4 = new QLabel(tr("本系统不提供医疗诊断，仅供参考"), p4);
-
-
-
-                disclaimer4->setAlignment(Qt::AlignCenter);
-
-
-
-                disclaimer4->setObjectName(QStringLiteral("legalDisclaimer"));
-
-#ifdef Q_OS_ANDROID
-                disclaimer4->setMinimumHeight(34);
-                disclaimer4->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
-#endif
-
-
-
-                p4Layout->addWidget(disclaimer4);
-
 #ifdef Q_OS_ANDROID
                 if (!p4->findChild<BottomNavBar *>(QStringLiteral("androidBottomNavHome"))) {
                     BottomNavBar *homeNav = createAndroidPageNav(0, p4);
@@ -2666,6 +2655,42 @@ void MainWindow::applyWarmVisualPolish()
 
     clearInlineStyles(ui->stackedWidget);
 
+#ifdef Q_OS_ANDROID
+    for (QComboBox *combo : findChildren<QComboBox *>()) {
+        if (!combo)
+            continue;
+        auto *listView = qobject_cast<QListView *>(combo->view());
+        if (!listView) {
+            listView = new QListView(combo);
+            combo->setView(listView);
+        }
+        combo->setMaxVisibleItems(6);
+        if (listView) {
+            listView->setFrameShape(QFrame::NoFrame);
+            listView->setLineWidth(0);
+            if (QWidget *popupWindow = listView->window()) {
+                popupWindow->setAttribute(Qt::WA_StyledBackground, true);
+                popupWindow->setStyleSheet(QStringLiteral(
+                    "background:#FFFFFF;"
+                    "border:1px solid #A8E6C3;"
+                    "border-radius:8px;"));
+            }
+            listView->setStyleSheet(QStringLiteral(
+                "QListView {"
+                "background:#FFFFFF;"
+                "border:1px solid #A8E6C3;"
+                "border-radius:0;"
+                "padding:4px;"
+                "outline:0;"
+                "selection-background-color:#A8E6C3;"
+                "selection-color:#1A1A1A;"
+                "}"
+                "QListView::item { min-height:34px; padding:6px 10px; }"
+                "QListView::item:selected { background:#A8E6C3; color:#1A1A1A; }"));
+        }
+    }
+#endif
+
     auto tuneSpacer = [](QBoxLayout *layout, int index, int height, QSizePolicy::Policy verticalPolicy = QSizePolicy::Fixed) {
         if (!layout || index < 0 || index >= layout->count())
             return;
@@ -2946,8 +2971,9 @@ void MainWindow::applyWarmVisualPolish()
     if (ui->page_4) {
         if (auto *layout = qobject_cast<QVBoxLayout *>(ui->page_4->layout())) {
 #ifdef Q_OS_ANDROID
-            layout->setContentsMargins(12, 10, 12, 10);
-            layout->setSpacing(9);
+            layout->setContentsMargins(8, 0, 8, 6);
+            layout->setSpacing(4);
+            layout->setAlignment(Qt::AlignTop);
 #else
             layout->setContentsMargins(20, 16, 20, 12);
             layout->setSpacing(12);
@@ -2956,8 +2982,13 @@ void MainWindow::applyWarmVisualPolish()
         if (ui->frameGoal) {
             ui->frameGoal->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
             if (auto *goalLayout = qobject_cast<QVBoxLayout *>(ui->frameGoal->layout())) {
+#ifdef Q_OS_ANDROID
+                goalLayout->setContentsMargins(12, 6, 12, 6);
+                goalLayout->setSpacing(2);
+#else
                 goalLayout->setContentsMargins(16, 14, 16, 14);
                 goalLayout->setSpacing(8);
+#endif
 
                 if (!ui->frameGoal->findChild<QWidget *>(QStringLiteral("goalHeaderRow"))) {
                     if (ui->lblGoalTitle) {
@@ -2984,9 +3015,15 @@ void MainWindow::applyWarmVisualPolish()
                     m_btnGoalToggle = new QPushButton(tr("展开"), headerRow);
                     m_btnGoalToggle->setObjectName(QStringLiteral("btnGoalToggle"));
                     m_btnGoalToggle->setCursor(Qt::PointingHandCursor);
+#ifdef Q_OS_ANDROID
+                    m_btnGoalToggle->setMinimumSize(58, 26);
+                    m_btnGoalToggle->setMaximumHeight(28);
+                    headerRow->setMinimumHeight(28);
+#else
                     m_btnGoalToggle->setMinimumSize(76, 40);
                     m_btnGoalToggle->setMaximumHeight(44);
                     headerRow->setMinimumHeight(46);
+#endif
                     headerLayout->addWidget(m_btnGoalToggle, 0, Qt::AlignRight | Qt::AlignVCenter);
                     goalLayout->insertWidget(0, headerRow);
 
@@ -3092,8 +3129,8 @@ void MainWindow::applyWarmVisualPolish()
 
             auto *contentLayout = new QVBoxLayout(content);
 #ifdef Q_OS_ANDROID
-            contentLayout->setContentsMargins(8, 18, 8, 32);
-            contentLayout->setSpacing(42);
+            contentLayout->setContentsMargins(6, 8, 6, 18);
+            contentLayout->setSpacing(14);
 #else
             contentLayout->setContentsMargins(14, 28, 14, 42);
             contentLayout->setSpacing(58);
@@ -3108,6 +3145,15 @@ void MainWindow::applyWarmVisualPolish()
                     contentLayout->addItem(item);
                 }
             }
+
+            auto *disclaimer = new QLabel(tr("本系统不提供医疗诊断，仅供参考"), content);
+            disclaimer->setObjectName(QStringLiteral("legalDisclaimer"));
+            disclaimer->setAlignment(Qt::AlignCenter);
+#ifdef Q_OS_ANDROID
+            disclaimer->setMinimumHeight(28);
+            disclaimer->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+#endif
+            contentLayout->addWidget(disclaimer);
 
             auto *scrollArea = new QScrollArea(tabPage);
             scrollArea->setObjectName(QStringLiteral("planScrollArea"));
@@ -3135,10 +3181,10 @@ void MainWindow::applyWarmVisualPolish()
         ensurePlanTabScroll(ui->tabDayAfter);
 
         if (ui->tabWidgetDays) {
-            ui->tabWidgetDays->setMinimumHeight(0);
-            ui->tabWidgetDays->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Ignored);
+            ui->tabWidgetDays->setMinimumHeight(520);
+            ui->tabWidgetDays->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
 #ifdef Q_OS_ANDROID
-            ui->tabWidgetDays->setMaximumHeight(424);
+            ui->tabWidgetDays->setMaximumHeight(520);
 #endif
         }
 
@@ -3148,8 +3194,8 @@ void MainWindow::applyWarmVisualPolish()
         for (QGroupBox *group : ui->tabWidgetDays->findChildren<QGroupBox *>()) {
             group->setProperty("class", QStringLiteral("planCard"));
 #ifdef Q_OS_ANDROID
-            group->setMinimumHeight(184);
-            group->setMaximumHeight(190);
+            group->setMinimumHeight(114);
+            group->setMaximumHeight(120);
 #else
             group->setMinimumHeight(218);
             group->setMaximumHeight(242);
@@ -3157,8 +3203,8 @@ void MainWindow::applyWarmVisualPolish()
             group->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
             if (auto *row = qobject_cast<QHBoxLayout *>(group->layout())) {
 #ifdef Q_OS_ANDROID
-                row->setContentsMargins(10, 4, 10, 8);
-                row->setSpacing(12);
+                row->setContentsMargins(8, 2, 8, 6);
+                row->setSpacing(10);
 #else
                 row->setContentsMargins(16, 22, 16, 22);
                 row->setSpacing(24);
@@ -3185,7 +3231,7 @@ void MainWindow::applyWarmVisualPolish()
                     actionColumn->setObjectName(QStringLiteral("planActionColumn"));
                     auto *actionLayout = new QVBoxLayout(actionColumn);
                     actionLayout->setContentsMargins(0, 0, 0, 0);
-                    actionLayout->setSpacing(24);
+                    actionLayout->setSpacing(8);
                     actionLayout->addWidget(feedback);
                     actionLayout->addWidget(adjust);
                     actionLayout->addStretch();
@@ -3194,9 +3240,9 @@ void MainWindow::applyWarmVisualPolish()
 
                 if (actionColumn) {
 #ifdef Q_OS_ANDROID
-                    actionColumn->setMinimumWidth(86);
-                    actionColumn->setMaximumWidth(96);
-                    actionColumn->setMinimumHeight(102);
+                    actionColumn->setMinimumWidth(78);
+                    actionColumn->setMaximumWidth(86);
+                    actionColumn->setMinimumHeight(70);
 #else
                     actionColumn->setMinimumWidth(112);
                     actionColumn->setMaximumWidth(128);
@@ -3205,7 +3251,7 @@ void MainWindow::applyWarmVisualPolish()
                     actionColumn->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Preferred);
                     if (auto *actionLayout = qobject_cast<QVBoxLayout *>(actionColumn->layout())) {
 #ifdef Q_OS_ANDROID
-                        actionLayout->setSpacing(12);
+                        actionLayout->setSpacing(8);
 #else
                         actionLayout->setSpacing(24);
 #endif
@@ -3224,8 +3270,8 @@ void MainWindow::applyWarmVisualPolish()
         for (QTextEdit *textEdit : ui->tabWidgetDays->findChildren<QTextEdit *>()) {
             textEdit->setProperty("class", QStringLiteral("planText"));
 #ifdef Q_OS_ANDROID
-            textEdit->setMinimumHeight(104);
-            textEdit->setMaximumHeight(104);
+            textEdit->setMinimumHeight(58);
+            textEdit->setMaximumHeight(58);
 #else
             textEdit->setMinimumHeight(120);
             textEdit->setMaximumHeight(120);
@@ -3255,8 +3301,8 @@ void MainWindow::applyWarmVisualPolish()
             if (button->objectName().startsWith(QStringLiteral("btnFeedback")) ||
                 button->objectName() == QStringLiteral("btnAdjust")) {
 #ifdef Q_OS_ANDROID
-                button->setMinimumSize(88, 46);
-                button->setMaximumSize(98, 48);
+                button->setMinimumSize(76, 31);
+                button->setMaximumSize(84, 33);
 #else
                 button->setMinimumSize(112, 48);
                 button->setMaximumSize(128, 52);
@@ -3271,7 +3317,7 @@ void MainWindow::applyWarmVisualPolish()
                     contentLayout->activate();
                     const int groupCount = content->findChildren<QGroupBox *>().size();
 #ifdef Q_OS_ANDROID
-                    const int fixedHeight = 18 + 34 + qMax(1, groupCount) * 190 + qMax(0, groupCount - 1) * 42;
+                    const int fixedHeight = 8 + 18 + qMax(1, groupCount) * 120 + qMax(0, groupCount - 1) * 14;
 #else
                     const int fixedHeight = 28 + 42 + qMax(1, groupCount) * 242 + qMax(0, groupCount - 1) * 58;
 #endif
@@ -3293,7 +3339,10 @@ void MainWindow::applyWarmVisualPolish()
             if (ui->frameGoal)
                 layout->setStretchFactor(ui->frameGoal, 0);
             if (ui->tabWidgetDays)
-                layout->setStretchFactor(ui->tabWidgetDays, 1);
+                layout->setStretchFactor(ui->tabWidgetDays, 0);
+#ifdef Q_OS_ANDROID
+            layout->setAlignment(Qt::AlignTop);
+#endif
         }
         ui->page_4->installEventFilter(this);
         for (QWidget *child : ui->page_4->findChildren<QWidget *>())
@@ -3313,8 +3362,13 @@ void MainWindow::updateGoalCollapseState()
     QScrollArea *goalScroll = ui->frameGoal->findChild<QScrollArea *>(QStringLiteral("goalContentScroll"));
     if (goalScroll) {
         goalScroll->setVisible(m_goalExpanded);
+#ifdef Q_OS_ANDROID
+        goalScroll->setMinimumHeight(m_goalExpanded ? 72 : 0);
+        goalScroll->setMaximumHeight(m_goalExpanded ? 108 : 0);
+#else
         goalScroll->setMinimumHeight(m_goalExpanded ? 104 : 0);
         goalScroll->setMaximumHeight(m_goalExpanded ? 184 : 0);
+#endif
     } else if (ui->lblGoalContent) {
         ui->lblGoalContent->setVisible(m_goalExpanded);
     }
@@ -3322,8 +3376,13 @@ void MainWindow::updateGoalCollapseState()
     if (m_btnGoalToggle)
         m_btnGoalToggle->setText(m_goalExpanded ? tr("收起") : tr("展开"));
 
+#ifdef Q_OS_ANDROID
+    ui->frameGoal->setMinimumHeight(m_goalExpanded ? 134 : 54);
+    ui->frameGoal->setMaximumHeight(m_goalExpanded ? 174 : 62);
+#else
     ui->frameGoal->setMinimumHeight(m_goalExpanded ? 210 : 104);
     ui->frameGoal->setMaximumHeight(m_goalExpanded ? 286 : 120);
+#endif
     ui->frameGoal->updateGeometry();
 
     if (ui->tabWidgetDays)
@@ -3444,12 +3503,12 @@ void MainWindow::setupPage4Widgets()
 
 
 
-    topBar->setContentsMargins(0, 0, 0, 4);
+    topBar->setContentsMargins(0, 0, 0, 0);
 
 
 
 #ifdef Q_OS_ANDROID
-    topBar->setSpacing(8);
+    topBar->setSpacing(6);
 #else
     topBar->setSpacing(12);
 #endif
@@ -3475,7 +3534,7 @@ void MainWindow::setupPage4Widgets()
     btnHamburger->setObjectName(QStringLiteral("btnHamburger"));
 
 #ifdef Q_OS_ANDROID
-    btnHamburger->setFixedSize(44, 44);
+    btnHamburger->setFixedSize(40, 40);
     QFont hamburgerFont = btnHamburger->font();
     hamburgerFont.setPointSize(22);
     hamburgerFont.setBold(true);
@@ -3524,7 +3583,7 @@ void MainWindow::setupPage4Widgets()
 
         streakWidget->setMinimumWidth(0);
 #ifdef Q_OS_ANDROID
-        streakWidget->setMinimumHeight(44);
+        streakWidget->setMinimumHeight(40);
 #else
         streakWidget->setMinimumHeight(48);
 #endif
@@ -3553,7 +3612,7 @@ void MainWindow::setupPage4Widgets()
 
 
 
-    m_lblAllDone = new QLabel(tr("\u2705 今日全部打卡完成！"), page4);
+    m_lblAllDone = new QLabel(tr("今日全部打卡完成"), page4);
 
 
 
@@ -3565,7 +3624,8 @@ void MainWindow::setupPage4Widgets()
 
 
 
-    topBar->addWidget(m_lblAllDone);
+    // Keep this state available for logic, but do not place it in the top bar.
+    // On narrow mobile screens the extra pill pushes the whole header sideways.
 
 
 
@@ -3587,8 +3647,8 @@ void MainWindow::setupPage4Widgets()
 
 
 #ifdef Q_OS_ANDROID
-    m_btnViewYesterday->setMinimumSize(106, 44);
-    m_btnViewYesterday->setMaximumSize(116, 46);
+    m_btnViewYesterday->setMinimumSize(100, 40);
+    m_btnViewYesterday->setMaximumSize(112, 42);
 #else
     m_btnViewYesterday->setMinimumSize(132, 48);
     m_btnViewYesterday->setMaximumSize(148, 52);
@@ -6733,6 +6793,10 @@ void MainWindow::onFeedbackButtonClicked(QTextEdit *textEdit, const QString &slo
 
     DatabaseManager::instance().markItemDone(itemId);
 
+    MotionHelper::animateCompletionFeedback(
+        ui->stackedWidget,
+        isModifyMode ? tr("反馈已更新") : tr("打卡完成"));
+
 
 
 
@@ -6864,26 +6928,6 @@ void MainWindow::onFeedbackButtonClicked(QTextEdit *textEdit, const QString &slo
 
 
         }
-
-
-
-    } else {
-
-
-
-        // Explorer: simple confirmation
-
-
-
-        AnimatedDialog::info(
-
-
-
-            this, tr("反馈已记录"),
-
-
-
-            tr("反馈已记录。AI 助手会结合你的执行情况，在生成后续计划时同步优化。"));
 
 
 
@@ -9492,7 +9536,7 @@ void MainWindow::updatePlanUI()
         if (!textEdit)
             return;
 #ifdef Q_OS_ANDROID
-        constexpr int PlanTextHeight = 104;
+        constexpr int PlanTextHeight = 58;
 #else
         constexpr int PlanTextHeight = 120;
 #endif
@@ -9521,7 +9565,7 @@ void MainWindow::updatePlanUI()
 
     for (QGroupBox *group : ui->tabWidgetDays->findChildren<QGroupBox *>()) {
 #ifdef Q_OS_ANDROID
-        constexpr int cardHeight = 190;
+        constexpr int cardHeight = 120;
 #else
         constexpr int cardHeight = 242;
 #endif
@@ -9572,73 +9616,13 @@ void MainWindow::updatePlanUI()
 
 
 void MainWindow::updateAllDoneLabel()
-
-
-
 {
-
-
-
     if (!m_lblAllDone) return;
 
-
-
-
-
-
-
-    int planId = DatabaseManager::instance().getLatestPlanId(m_currentUserId);
-
-
-
-    if (planId < 0) {
-
-
-
-        m_lblAllDone->hide();
-
-
-
-        return;
-
-
-
-    }
-
-
-
-
-
-
-
-    int undoneCount = DatabaseManager::instance().countUndoneToday(planId);
-
-
-
-    if (undoneCount == 0) {
-
-
-
-        // All items are done
-
-
-
-        m_lblAllDone->show();
-
-
-
-    } else {
-
-
-
-        m_lblAllDone->hide();
-
-
-
-    }
-
-
-
+    // The top-bar completion pill used to push the header wider than the phone
+    // viewport after all slots were checked in. The card/button states already
+    // communicate completion, so the standalone pill stays hidden.
+    m_lblAllDone->hide();
 }
 
 
@@ -11617,11 +11601,20 @@ int MainWindow::setupAnalysisPage()
 
 
 
-    auto *vlay = qobject_cast<QVBoxLayout *>(existing->layout());
+    auto *rootLayout = qobject_cast<QVBoxLayout *>(existing->layout());
+    if (!rootLayout) return -1;
+    rootLayout->setContentsMargins(0, 0, 0, 0);
+    rootLayout->setSpacing(0);
 
-
-
-    if (!vlay) return -1;
+    auto *pageScroll = new QScrollArea(existing);
+    pageScroll->setObjectName(QStringLiteral("analysisPageScrollArea"));
+    pageScroll->setWidgetResizable(true);
+    pageScroll->setFrameShape(QFrame::NoFrame);
+    pageScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    auto *scrollContent = new QWidget(pageScroll);
+    scrollContent->setObjectName(QStringLiteral("analysisPageScrollContent"));
+    scrollContent->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    auto *vlay = new QVBoxLayout(scrollContent);
 
 #ifdef Q_OS_ANDROID
     vlay->setContentsMargins(18, 18, 18, 10);
@@ -11630,6 +11623,8 @@ int MainWindow::setupAnalysisPage()
     vlay->setContentsMargins(24, 24, 24, 20);
     vlay->setSpacing(16);
 #endif
+    pageScroll->setWidget(scrollContent);
+    rootLayout->addWidget(pageScroll, 1);
     auto *analysisHero = UiFactory::assetLabel(QStringLiteral(":/assets/ai_analysis.png"), 228, existing);
     analysisHero->setMinimumHeight(228);
     vlay->addWidget(analysisHero);
@@ -11817,7 +11812,7 @@ int MainWindow::setupAnalysisPage()
 
 
 #ifdef Q_OS_ANDROID
-    vlay->addWidget(createAndroidPageNav(1, existing));
+    rootLayout->addWidget(createAndroidPageNav(1, existing));
 #endif
 
     UiFactory::applyWarmPolish(existing);
@@ -11933,11 +11928,20 @@ int MainWindow::setupReportPage()
 
 
 
-    auto *vlay = qobject_cast<QVBoxLayout *>(existing->layout());
+    auto *rootLayout = qobject_cast<QVBoxLayout *>(existing->layout());
+    if (!rootLayout) return -1;
+    rootLayout->setContentsMargins(0, 0, 0, 0);
+    rootLayout->setSpacing(0);
 
-
-
-    if (!vlay) return -1;
+    auto *pageScroll = new QScrollArea(existing);
+    pageScroll->setObjectName(QStringLiteral("reportPageScrollArea"));
+    pageScroll->setWidgetResizable(true);
+    pageScroll->setFrameShape(QFrame::NoFrame);
+    pageScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    auto *scrollContent = new QWidget(pageScroll);
+    scrollContent->setObjectName(QStringLiteral("reportPageScrollContent"));
+    scrollContent->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    auto *vlay = new QVBoxLayout(scrollContent);
 
 #ifdef Q_OS_ANDROID
     vlay->setContentsMargins(18, 18, 18, 10);
@@ -11946,6 +11950,8 @@ int MainWindow::setupReportPage()
     vlay->setContentsMargins(24, 24, 24, 20);
     vlay->setSpacing(16);
 #endif
+    pageScroll->setWidget(scrollContent);
+    rootLayout->addWidget(pageScroll, 1);
     auto *reportHero = UiFactory::assetLabel(QStringLiteral(":/assets/empty_report.png"), 228, existing);
     reportHero->setMinimumHeight(228);
     vlay->addWidget(reportHero);
@@ -11977,6 +11983,138 @@ int MainWindow::setupReportPage()
         tr("周报会汇总饮食、运动和完成率变化，也可以继续导出为 PNG 图片保存或分享。"),
         existing);
     vlay->addWidget(reportSummary);
+
+    auto *metricsCard = new QFrame(existing);
+    metricsCard->setObjectName(QStringLiteral("reportMetricsCard"));
+    UiFactory::setClass(metricsCard, QStringLiteral("warmCard"));
+    metricsCard->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    auto *metricsLayout = new QVBoxLayout(metricsCard);
+#ifdef Q_OS_ANDROID
+    metricsLayout->setContentsMargins(14, 14, 14, 14);
+    metricsLayout->setSpacing(10);
+#else
+    metricsLayout->setContentsMargins(16, 16, 16, 16);
+    metricsLayout->setSpacing(12);
+#endif
+
+    auto *metricsTitle = new QLabel(tr("打卡数据概览"), metricsCard);
+    metricsTitle->setObjectName(QStringLiteral("emptyTitle"));
+    metricsLayout->addWidget(metricsTitle);
+
+    QMap<QDate, QPair<int, int>> sevenDayStats;
+    const QDate today = QDate::currentDate();
+    for (int offset = 6; offset >= 0; --offset)
+        sevenDayStats.insert(today.addDays(-offset), qMakePair(0, 0));
+
+    QSqlDatabase &db = DatabaseManager::instance().database();
+    QSqlQuery statsQuery(db);
+    statsQuery.prepare(QStringLiteral(
+        "SELECT di.date, COUNT(*), "
+        "SUM(CASE WHEN di.is_done = 1 THEN 1 ELSE 0 END) "
+        "FROM Daily_Items di "
+        "JOIN Plans p ON di.plan_id = p.id "
+        "WHERE p.user_id = :uid AND di.date BETWEEN :start AND :end "
+        "GROUP BY di.date"));
+    statsQuery.bindValue(QStringLiteral(":uid"), m_currentUserId);
+    statsQuery.bindValue(QStringLiteral(":start"), today.addDays(-6).toString(QStringLiteral("yyyy-MM-dd")));
+    statsQuery.bindValue(QStringLiteral(":end"), today.toString(QStringLiteral("yyyy-MM-dd")));
+    if (statsQuery.exec()) {
+        while (statsQuery.next()) {
+            const QDate date = QDate::fromString(statsQuery.value(0).toString(), QStringLiteral("yyyy-MM-dd"));
+            if (sevenDayStats.contains(date))
+                sevenDayStats[date] = qMakePair(statsQuery.value(1).toInt(), statsQuery.value(2).toInt());
+        }
+    }
+
+    QVector<qreal> rates;
+    QVector<QString> labels;
+    int totalSlots = 0;
+    int doneSlots = 0;
+    for (auto it = sevenDayStats.cbegin(); it != sevenDayStats.cend(); ++it) {
+        const int total = it.value().first;
+        const int done = it.value().second;
+        totalSlots += total;
+        doneSlots += done;
+        rates.append(total > 0 ? (done * 100.0 / total) : 0.0);
+        labels.append(it.key().toString(QStringLiteral("M/d")));
+    }
+    const int completionRate = totalSlots > 0 ? qRound(doneSlots * 100.0 / totalSlots) : 0;
+
+    auto *metricsRow = new QHBoxLayout();
+    metricsRow->setSpacing(12);
+    auto *progress = new CircularProgressBar(metricsCard);
+    progress->setObjectName(QStringLiteral("weeklyCompletionProgress"));
+    progress->setLineWidth(10);
+    progress->setColors(DesignTokens::primaryLightest(), DesignTokens::primary());
+    progress->setText(QStringLiteral("%1%").arg(completionRate));
+    progress->setValue(completionRate);
+
+    auto *trend = new TrendLineChart(metricsCard);
+    trend->setObjectName(QStringLiteral("weeklyTrendChart"));
+    trend->setTitle(tr("近 7 日完成率"));
+    trend->setYAxisLabel(tr("完成率"));
+    trend->setColors(DesignTokens::primary(), DesignTokens::primaryLightest(), DesignTokens::borderLight());
+    trend->setData(rates, labels);
+    trend->setMinimumWidth(0);
+    trend->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+
+#ifdef Q_OS_ANDROID
+    auto *progressWrap = new QWidget(metricsCard);
+    auto *progressLayout = new QHBoxLayout(progressWrap);
+    progressLayout->setContentsMargins(0, 0, 0, 0);
+    progressLayout->addStretch();
+    progressLayout->addWidget(progress);
+    progressLayout->addStretch();
+    metricsLayout->addWidget(progressWrap);
+    metricsLayout->addWidget(trend);
+#else
+    metricsRow->addWidget(progress, 0, Qt::AlignTop);
+    metricsRow->addWidget(trend, 1);
+    metricsLayout->addLayout(metricsRow);
+#endif
+
+    QMap<QDate, CalendarGridView::CheckInStatus> monthStatus;
+    const QDate monthStart(today.year(), today.month(), 1);
+    const QDate monthEnd(today.year(), today.month(), today.daysInMonth());
+    QSqlQuery monthQuery(db);
+    monthQuery.prepare(QStringLiteral(
+        "SELECT di.date, COUNT(*), "
+        "SUM(CASE WHEN di.is_done = 1 THEN 1 ELSE 0 END) "
+        "FROM Daily_Items di "
+        "JOIN Plans p ON di.plan_id = p.id "
+        "WHERE p.user_id = :uid AND di.date BETWEEN :start AND :end "
+        "GROUP BY di.date"));
+    monthQuery.bindValue(QStringLiteral(":uid"), m_currentUserId);
+    monthQuery.bindValue(QStringLiteral(":start"), monthStart.toString(QStringLiteral("yyyy-MM-dd")));
+    monthQuery.bindValue(QStringLiteral(":end"), monthEnd.toString(QStringLiteral("yyyy-MM-dd")));
+    if (monthQuery.exec()) {
+        while (monthQuery.next()) {
+            const QDate date = QDate::fromString(monthQuery.value(0).toString(), QStringLiteral("yyyy-MM-dd"));
+            const int total = monthQuery.value(1).toInt();
+            const int done = monthQuery.value(2).toInt();
+            CalendarGridView::CheckInStatus status = CalendarGridView::NoData;
+            if (total > 0)
+                status = (done == total) ? CalendarGridView::Excellent
+                       : (done > 0) ? CalendarGridView::Complete
+                                    : CalendarGridView::Incomplete;
+            monthStatus.insert(date, status);
+        }
+    }
+
+    auto *calendar = new CalendarGridView(metricsCard);
+    calendar->setObjectName(QStringLiteral("monthlyCalendarGrid"));
+    calendar->setTitle(tr("本月打卡"));
+    calendar->setMonth(today.month(), today.year());
+    calendar->setCheckInData(monthStatus);
+    calendar->setMinimumWidth(0);
+#ifdef Q_OS_ANDROID
+    calendar->setFixedHeight(292);
+#else
+    calendar->setFixedHeight(350);
+#endif
+    metricsLayout->addWidget(calendar);
+
+    vlay->addWidget(metricsCard);
 
     auto *btnGenerate = UiFactory::primaryButton(tr("\U0001F4C4  \u751f\u6210\u5468\u62a5"), existing);
 
@@ -12049,7 +12187,7 @@ int MainWindow::setupReportPage()
 
 
 #ifdef Q_OS_ANDROID
-    vlay->addWidget(createAndroidPageNav(2, existing));
+    rootLayout->addWidget(createAndroidPageNav(2, existing));
 #endif
 
     UiFactory::applyWarmPolish(existing);

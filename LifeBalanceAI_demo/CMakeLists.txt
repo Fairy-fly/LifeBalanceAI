@@ -23,9 +23,19 @@ qt_add_executable(LifeBalanceAI_demo
     animateddialog.h
     bottomnavbar.cpp
     bottomnavbar.h
+    circularprogressbar.cpp
+    circularprogressbar.h
+    trendlinechart.cpp
+    trendlinechart.h
+    calendargridview.cpp
+    calendargridview.h
+    completionfeedback.cpp
+    completionfeedback.h
     designtokens.h
     motionhelper.cpp
     motionhelper.h
+    thememanager.cpp
+    thememanager.h
     loadingoverlay.cpp
     loadingoverlay.h
     sidedrawer.cpp
@@ -68,6 +78,15 @@ qt_add_resources(LifeBalanceAI_demo "LifeBalanceResources"
         resources/fonts/MiSans-Bold.otf
         resources/fonts/SmileySans-Oblique.otf
 )
+
+if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.env")
+    qt_add_resources(LifeBalanceAI_demo "LifeBalanceLocalConfig"
+        PREFIX "/config"
+        BASE "${CMAKE_CURRENT_SOURCE_DIR}"
+        FILES
+            .env
+    )
+endif()
 
 target_include_directories(LifeBalanceAI_demo PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 

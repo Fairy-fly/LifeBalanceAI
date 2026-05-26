@@ -3,19 +3,21 @@
 #include <QFont>
 #include <QPropertyAnimation>
 #include <QParallelAnimationGroup>
+#include <QRadialGradient>
 
 CompletionFeedback::CompletionFeedback(QWidget *parent)
     : QWidget(parent), m_scale(0.8), m_opacity(1.0)
 {
-    setWindowFlags(Qt::Widget | Qt::FramelessWindowHint | Qt::TransparentForMouseEvents);
+    setWindowFlags(Qt::Widget | Qt::FramelessWindowHint);
     setAttribute(Qt::WA_TranslucentBackground);
+    setAttribute(Qt::WA_TransparentForMouseEvents);
 }
 
 void CompletionFeedback::showCompletionFeedback(const QString &message)
 {
     m_type = Completion;
     m_message = message;
-    m_scale = 0.3;
+    m_scale = 0.65;
     m_opacity = 0;
     show();
     playCompletionAnimation();
@@ -79,19 +81,17 @@ void CompletionFeedback::playCompletionAnimation()
 
     m_animationGroup = new QSequentialAnimationGroup(this);
 
-    // Scale-in animation
     QPropertyAnimation *scaleIn = new QPropertyAnimation(this, "scale");
-    scaleIn->setDuration(400);
-    scaleIn->setStartValue(0.3);
-    scaleIn->setEndValue(1.1);
-    scaleIn->setEasingCurve(QEasingCurve::OutElastic);
+    scaleIn->setDuration(220);
+    scaleIn->setStartValue(0.65);
+    scaleIn->setEndValue(1.0);
+    scaleIn->setEasingCurve(QEasingCurve::OutCubic);
 
-    // Opacity animation (parallel)
     QPropertyAnimation *opacityIn = new QPropertyAnimation(this, "opacity");
-    opacityIn->setDuration(400);
+    opacityIn->setDuration(180);
     opacityIn->setStartValue(0.0);
     opacityIn->setEndValue(1.0);
-    opacityIn->setEasingCurve(QEasingCurve::InOutQuad);
+    opacityIn->setEasingCurve(QEasingCurve::OutCubic);
 
     QParallelAnimationGroup *group1 = new QParallelAnimationGroup();
     group1->addAnimation(scaleIn);
@@ -99,24 +99,22 @@ void CompletionFeedback::playCompletionAnimation()
 
     m_animationGroup->addAnimation(group1);
 
-    // Pause
     QPropertyAnimation *pause = new QPropertyAnimation(this, "scale");
-    pause->setDuration(1000);
+    pause->setDuration(620);
 
     m_animationGroup->addAnimation(pause);
 
-    // Fade out and shrink
     QPropertyAnimation *fadeOut = new QPropertyAnimation(this, "opacity");
-    fadeOut->setDuration(300);
+    fadeOut->setDuration(240);
     fadeOut->setStartValue(1.0);
     fadeOut->setEndValue(0.0);
-    fadeOut->setEasingCurve(QEasingCurve::InQuad);
+    fadeOut->setEasingCurve(QEasingCurve::InOutQuad);
 
     QPropertyAnimation *scaleOut = new QPropertyAnimation(this, "scale");
-    scaleOut->setDuration(300);
+    scaleOut->setDuration(240);
     scaleOut->setStartValue(1.0);
-    scaleOut->setEndValue(0.8);
-    scaleOut->setEasingCurve(QEasingCurve::InQuad);
+    scaleOut->setEndValue(0.92);
+    scaleOut->setEasingCurve(QEasingCurve::InOutQuad);
 
     QParallelAnimationGroup *group2 = new QParallelAnimationGroup();
     group2->addAnimation(fadeOut);
@@ -177,30 +175,37 @@ void CompletionFeedback::playAchievementAnimation()
 
 void CompletionFeedback::drawCompletionContent(QPainter &painter)
 {
-    // Draw circular background
-    int size = 160;
-    int x = (width() - size) / 2;
-    int y = (height() - size) / 2;
+    const int size = 138;
+    const int x = (width() - size) / 2;
+    const int y = (height() - size) / 2 - 18;
+    const QPoint center(x + size / 2, y + size / 2);
 
-    painter.fillRect(QRect(x, y, size, size), QColor(255, 255, 255, 230));
-    painter.setPen(QPen(QColor("#4CAF7F"), 2));
-    painter.drawEllipse(x, y, size, size);
+    QRadialGradient glow(center, size * 0.82);
+    glow.setColorAt(0.0, QColor(255, 255, 255, 245));
+    glow.setColorAt(0.65, QColor(232, 248, 242, 236));
+    glow.setColorAt(1.0, QColor(232, 248, 242, 0));
 
-    // Draw checkmark
-    painter.setPen(QPen(QColor("#4CAF7F"), 4, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-    int cx = width() / 2;
-    int cy = height() / 2;
-    painter.drawLine(cx - 30, cy + 5, cx - 10, cy + 25);
-    painter.drawLine(cx - 10, cy + 25, cx + 30, cy - 15);
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(glow);
+    painter.drawEllipse(QRect(x - 18, y - 18, size + 36, size + 36));
 
-    // Draw message text
+    painter.setBrush(QColor(255, 255, 255, 232));
+    painter.setPen(QPen(QColor("#4CAF7F"), 3));
+    painter.drawEllipse(QRect(x, y, size, size));
+
+    painter.setPen(QPen(QColor("#4CAF7F"), 7, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    const int cx = width() / 2;
+    const int cy = y + size / 2;
+    painter.drawLine(cx - 34, cy + 4, cx - 10, cy + 28);
+    painter.drawLine(cx - 10, cy + 28, cx + 38, cy - 24);
+
     QFont font = this->font();
-    font.setPointSize(16);
+    font.setPointSize(15);
     font.setBold(true);
     painter.setFont(font);
-    painter.setPen(QColor("#1A1A1A"));
+    painter.setPen(QColor("#2D7A5E"));
 
-    QRect textRect(x, y + size + 20, size, 50);
+    QRect textRect(x - 30, y + size + 12, size + 60, 38);
     painter.drawText(textRect, Qt::AlignCenter | Qt::TextWordWrap, m_message);
 }
 

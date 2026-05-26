@@ -10,7 +10,11 @@ CalendarGridView::CalendarGridView(QWidget *parent)
     QDate today = QDate::currentDate();
     m_month = today.month();
     m_year = today.year();
+#ifdef Q_OS_ANDROID
+    setMinimumSize(0, 286);
+#else
     setMinimumSize(280, 350);
+#endif
 }
 
 void CalendarGridView::setCheckInData(const QMap<QDate, CheckInStatus> &data)
@@ -47,12 +51,20 @@ CalendarGridView::CheckInStatus CalendarGridView::status(const QDate &date) cons
 
 QSize CalendarGridView::sizeHint() const
 {
+#ifdef Q_OS_ANDROID
+    return QSize(280, 300);
+#else
     return QSize(320, 380);
+#endif
 }
 
 QSize CalendarGridView::minimumSizeHint() const
 {
+#ifdef Q_OS_ANDROID
+    return QSize(0, 286);
+#else
     return QSize(280, 350);
+#endif
 }
 
 void CalendarGridView::paintEvent(QPaintEvent *event)
@@ -108,7 +120,9 @@ void CalendarGridView::drawTitle(QPainter &painter)
     painter.setFont(font);
     painter.setPen(QColor("#1A1A1A"));
 
-    QString title = QString("%1年%2月").arg(m_year).arg(m_month);
+    QString title = m_title.isEmpty()
+        ? QStringLiteral("%1年%2月").arg(m_year).arg(m_month)
+        : QStringLiteral("%1 · %2年%3月").arg(m_title).arg(m_year).arg(m_month);
     painter.drawText(QRectF(0, 5, width(), 30), Qt::AlignCenter, title);
 }
 
@@ -205,10 +219,10 @@ QString CalendarGridView::getColorForStatus(CheckInStatus status) const
 
 int CalendarGridView::daysInMonth(int month, int year) const
 {
-    return QDate(year, month + 1, 0).day();
+    return QDate(year, month, 1).daysInMonth();
 }
 
 int CalendarGridView::firstDayOfMonth(int month, int year) const
 {
-    return QDate(year, month, 1).dayOfWeek();
+    return QDate(year, month, 1).dayOfWeek() % 7;
 }

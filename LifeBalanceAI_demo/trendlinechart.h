@@ -4,6 +4,9 @@
 #include <QWidget>
 #include <QVector>
 #include <QString>
+#include <QPointF>
+
+class QPainter;
 
 class TrendLineChart : public QWidget
 {

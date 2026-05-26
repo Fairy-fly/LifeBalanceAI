@@ -8,7 +8,11 @@
 TrendLineChart::TrendLineChart(QWidget *parent)
     : QWidget(parent)
 {
+#ifdef Q_OS_ANDROID
+    setMinimumSize(0, 150);
+#else
     setMinimumSize(300, 200);
+#endif
 }
 
 void TrendLineChart::setData(const QVector<qreal> &values, const QVector<QString> &labels)
@@ -68,12 +72,20 @@ void TrendLineChart::setYAxisLabel(const QString &label)
 
 QSize TrendLineChart::sizeHint() const
 {
+#ifdef Q_OS_ANDROID
+    return QSize(280, 170);
+#else
     return QSize(400, 250);
+#endif
 }
 
 QSize TrendLineChart::minimumSizeHint() const
 {
+#ifdef Q_OS_ANDROID
+    return QSize(0, 150);
+#else
     return QSize(300, 200);
+#endif
 }
 
 void TrendLineChart::paintEvent(QPaintEvent *event)
@@ -118,7 +130,9 @@ void TrendLineChart::calculatePoints(const QRectF &chartArea)
     if (range <= 0) range = 1;
 
     for (int i = 0; i < m_values.size(); ++i) {
-        qreal x = chartArea.left() + (i * chartArea.width()) / (m_values.size() - 1);
+        const qreal x = (m_values.size() == 1)
+            ? chartArea.center().x()
+            : chartArea.left() + (i * chartArea.width()) / (m_values.size() - 1);
         qreal normalizedValue = (m_values[i] - m_minValue) / range;
         qreal y = chartArea.bottom() - (normalizedValue * chartArea.height());
 
@@ -223,20 +237,6 @@ void TrendLineChart::drawLabels(QPainter &painter, const QRectF &chartArea)
         painter.drawText(textRect, Qt::AlignCenter, m_yAxisLabel);
         painter.restore();
     }
-}
-
-void TrendLineChart::drawTitle(QPainter &painter, const QRectF &chartArea)
-{
-    if (m_title.isEmpty()) return;
-
-    QFont font = this->font();
-    font.setPointSize(12);
-    font.setBold(true);
-    painter.setFont(font);
-    painter.setPen(QColor("#1A1A1A"));
-
-    QRectF titleRect(0, 5, width(), 30);
-    painter.drawText(titleRect, Qt::AlignCenter, m_title);
 }
 
 void TrendLineChart::drawTitle(QPainter &painter)

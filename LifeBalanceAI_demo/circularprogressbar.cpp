@@ -8,34 +8,43 @@
 CircularProgressBar::CircularProgressBar(QWidget *parent)
     : QWidget(parent), m_value(0.0), m_displayValue(0.0), m_lineWidth(12)
 {
+#ifdef Q_OS_ANDROID
+    setMinimumSize(92, 92);
+    setMaximumSize(132, 132);
+#else
     setMinimumSize(120, 120);
     setMaximumSize(300, 300);
+#endif
 }
 
 void CircularProgressBar::setValue(qreal val)
 {
     val = qBound(0.0, val, 100.0);
-    if (m_value == val) return;
+    if (qFuzzyCompare(m_value + 1.0, val + 1.0))
+        return;
 
     m_value = val;
 
-    // Create smooth animation
     if (m_animation) {
         m_animation->stop();
-        delete m_animation;
+        m_animation->deleteLater();
     }
 
-    m_animation = new QPropertyAnimation(this, "value");
+    m_animation = new QPropertyAnimation(this, "displayValue", this);
     m_animation->setDuration(500);
     m_animation->setStartValue(m_displayValue);
     m_animation->setEndValue(val);
     m_animation->setEasingCurve(QEasingCurve::OutCubic);
-    connect(m_animation, &QPropertyAnimation::valueChanged, this, [this]() {
-        update();
+    connect(m_animation, &QPropertyAnimation::finished, this, [this]() {
+        m_animation = nullptr;
     });
     m_animation->start(QPropertyAnimation::DeleteWhenStopped);
+}
 
-    m_displayValue = val;
+void CircularProgressBar::setDisplayValue(qreal val)
+{
+    m_displayValue = qBound(0.0, val, 100.0);
+    update();
 }
 
 void CircularProgressBar::setLineWidth(int width)
@@ -68,12 +77,20 @@ void CircularProgressBar::setAnimationDuration(int ms)
 
 QSize CircularProgressBar::sizeHint() const
 {
+#ifdef Q_OS_ANDROID
+    return QSize(116, 116);
+#else
     return QSize(200, 200);
+#endif
 }
 
 QSize CircularProgressBar::minimumSizeHint() const
 {
+#ifdef Q_OS_ANDROID
+    return QSize(92, 92);
+#else
     return QSize(120, 120);
+#endif
 }
 
 void CircularProgressBar::paintEvent(QPaintEvent *event)

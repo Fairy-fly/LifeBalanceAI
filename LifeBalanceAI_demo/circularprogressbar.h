@@ -9,6 +9,7 @@ class CircularProgressBar : public QWidget
 {
     Q_OBJECT
     Q_PROPERTY(qreal value READ value WRITE setValue)
+    Q_PROPERTY(qreal displayValue READ displayValue WRITE setDisplayValue)
     Q_PROPERTY(int lineWidth READ lineWidth WRITE setLineWidth)
 
 public:
@@ -16,6 +17,8 @@ public:
 
     void setValue(qreal val);
     qreal value() const { return m_value; }
+    qreal displayValue() const { return m_displayValue; }
+    void setDisplayValue(qreal val);
 
     void setLineWidth(int width);
     int lineWidth() const { return m_lineWidth; }

@@ -341,20 +341,20 @@ QGroupBox::title {
 }
 
 QGroupBox[class="planCard"] {
-    margin-top: 24px;
-    padding: 8px 14px 10px 14px;
+    margin-top: 14px;
+    padding: 4px 10px 6px 10px;
     background: #FEFEFE;
 }
 
 QGroupBox[class="planCard"]::title {
-    left: 20px;
-    top: 2px;
-    padding: 4px 14px 5px 14px;
+    left: 18px;
+    top: 1px;
+    padding: 1px 11px 2px 11px;
     border: 1px solid #E8E8E8;
     border-radius: 8px;
     background: #FFFFFF;
     color: #2D7A5E;
-    font-size: 16px;
+    font-size: 15px;
 }
 
 QFrame#frameGoal {
@@ -416,6 +416,7 @@ QSpinBox,
 QComboBox {
     font-family: "MiSans", "MiSans-Regular", "MiSans Regular", "Noto Sans SC", "Microsoft YaHei UI", "PingFang SC", sans-serif;
     font-weight: 400;
+    combobox-popup: 0;
     background: #FFFFFF;
     border: 1px solid #E8E8E8;
     border-radius: 4px;
@@ -437,10 +438,10 @@ QPlainTextEdit {
 }
 
 QTextEdit[class="planText"] {
-    min-height: 104px;
-    max-height: 104px;
-    padding: 8px 10px;
-    font-size: 14px;
+    min-height: 58px;
+    max-height: 58px;
+    padding: 5px 8px;
+    font-size: 13px;
     font-family: "MiSans", "MiSans-Regular", "MiSans Regular", "Noto Sans SC", "Microsoft YaHei UI", "PingFang SC", sans-serif;
     font-weight: 400;
     border-radius: 8px;
@@ -455,7 +456,7 @@ QComboBox {
 QLineEdit[class="profileDisplay"],
 QSpinBox[class="profileDisplay"],
 QComboBox[class="profileDisplay"] {
-    min-height: 34px;
+    min-height: 31px;
     max-height: 42px;
     padding: 2px 0;
     border: none;
@@ -565,7 +566,7 @@ QComboBox[class="profileDisplay"],
 QLineEdit[class="profileDisplay"]:disabled,
 QSpinBox[class="profileDisplay"]:disabled,
 QComboBox[class="profileDisplay"]:disabled {
-    min-height: 34px;
+    min-height: 31px;
     max-height: 42px;
     padding: 2px 0;
     border: none;
@@ -589,12 +590,17 @@ QComboBox[class="profileDisplay"]::down-arrow {
 
 QComboBox QAbstractItemView {
     background: #FFFFFF;
-    border: 1px solid #E8E8E8;
+    border: 1px solid #A8E6C3;
     border-radius: 8px;
     selection-background-color: #E8F8F2;
     selection-color: #1A1A1A;
     padding: 4px;
     outline: none;
+}
+
+QComboBox QAbstractItemView::item {
+    min-height: 34px;
+    padding: 6px 10px;
 }
 
 QPushButton {
@@ -752,23 +758,23 @@ QPushButton#btnFeedbackDayAfterMorning,
 QPushButton#btnFeedbackDayAfterLunch,
 QPushButton#btnFeedbackDayAfterDinner,
 QPushButton#btnFeedbackDayAfterExercise {
-    min-width: 112px;
-    min-height: 48px;
-    padding: 0 12px;
+    min-width: 78px;
+    min-height: 34px;
+    padding: 0 6px;
     background: #FFF1E6;
     color: #D97E3A;
     border: 1px solid #F8B88D;
-    font-size: 15px;
+    font-size: 14px;
 }
 
 QPushButton#btnAdjust {
-    min-width: 112px;
-    min-height: 48px;
-    padding: 0 12px;
+    min-width: 78px;
+    min-height: 34px;
+    padding: 0 6px;
     background: #EEF4F9;
     color: #6BA3D4;
     border: 1px solid #A8C8E1;
-    font-size: 15px;
+    font-size: 14px;
 }
 
 QPushButton#btnAdjust:disabled,
@@ -786,8 +792,8 @@ QPushButton#btnFeedbackDayAfterExercise:disabled {
 }
 
 QPushButton#btnHamburger {
-    min-width: 44px;
-    min-height: 44px;
+    min-width: 40px;
+    min-height: 40px;
     padding: 0;
     font-size: 22px;
     border-radius: 8px;
@@ -796,8 +802,8 @@ QPushButton#btnHamburger {
 }
 
 QPushButton#btnViewYesterday {
-    min-width: 106px;
-    min-height: 44px;
+    min-width: 100px;
+    min-height: 40px;
     padding: 0 10px;
     background: #FFFFFF;
     color: #2D7A5E;
@@ -813,8 +819,8 @@ QTabWidget::pane {
 
 QTabBar::tab {
     min-width: 72px;
-    min-height: 40px;
-    padding: 8px 12px;
+    min-height: 30px;
+    padding: 3px 11px;
     margin-right: 6px;
     margin-bottom: 4px;
     border: 1px solid #E8E8E8;
@@ -958,8 +964,8 @@ QFrame#emptyState {
 /* Improved tab styling */
 QTabBar::tab {
     min-width: 72px;
-    min-height: 40px;
-    padding: 8px 12px;
+    min-height: 30px;
+    padding: 3px 11px;
     margin-right: 6px;
     margin-bottom: 4px;
     border: 1px solid #E8E8E8;

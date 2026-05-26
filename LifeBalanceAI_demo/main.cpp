@@ -1,5 +1,6 @@
 ﻿#include "mainwindow.h"
 #include "databasemanager.h"
+#include "thememanager.h"
 
 #include <QApplication>
 #include <QDebug>
@@ -125,6 +126,13 @@ int main(int argc, char *argv[])
         }
 
         if (loaded) {
+            ThemeManager &themeManager = ThemeManager::instance();
+            const QByteArray envTheme = qgetenv("LIFEBALANCE_THEME");
+            if (!envTheme.isEmpty())
+                themeManager.setTheme(QString::fromUtf8(envTheme));
+            if (themeManager.isDarkMode())
+                qssContent += QStringLiteral("\n\n/* Dark theme overlay */\n") + themeManager.getStylesheet();
+
             // 打印前200个字符用于诊断
             qInfo().noquote() << "[QSS] 内容预览(前200字符):";
             qInfo().noquote() << qssContent.left(200);

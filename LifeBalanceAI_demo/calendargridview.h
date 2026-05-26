@@ -1,10 +1,13 @@
 #ifndef CALENDARGRIDVIEW_H
 #define CALENDARGRIDVIEW_H
 
-#include <QWidget>
-#include <QMap>
 #include <QDate>
+#include <QMap>
 #include <QString>
+#include <QWidget>
+
+class QMouseEvent;
+class QPainter;
 
 class CalendarGridView : public QWidget
 {
@@ -49,9 +52,9 @@ private:
     int firstDayOfMonth(int month, int year) const;
 
     QMap<QDate, CheckInStatus> m_checkInData;
-    QString m_title = "打卡日历";
-    int m_month = 0;  // Current month
-    int m_year = 0;   // Current year
+    QString m_title = QStringLiteral("打卡日历");
+    int m_month = 0;
+    int m_year = 0;
     int m_cellSize = 40;
 };
 
