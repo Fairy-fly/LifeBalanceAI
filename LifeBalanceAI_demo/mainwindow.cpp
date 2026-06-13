@@ -16,6 +16,7 @@
 
 #include "services/userservice.h"
 #include "services/authflowservice.h"
+#include "services/accountflowservice.h"
 #include "services/authsessionservice.h"
 #include "services/homeplanservice.h"
 #include "services/airesponseparser.h"
@@ -233,6 +234,37 @@ QString numericPrefix(const QString &text)
     value.remove(QStringLiteral("cm"), Qt::CaseInsensitive);
     value.remove(QStringLiteral("kg"), Qt::CaseInsensitive);
     return value.trimmed();
+}
+
+QString uiText(const char *text)
+{
+    return QString::fromUtf8(text);
+}
+
+QLabel *createInlineStatusLabel(const QString &objectName, QWidget *parent)
+{
+    auto *label = new QLabel(parent);
+    label->setObjectName(objectName);
+    label->setWordWrap(true);
+    label->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+    label->setMinimumHeight(42);
+    label->setContentsMargins(14, 10, 14, 10);
+    label->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    label->setStyleSheet(QStringLiteral(
+        "QLabel#%1{"
+        "background:%2;"
+        "border:1px solid %3;"
+        "border-left:4px solid %4;"
+        "border-radius:8px;"
+        "color:%5;"
+        "font-size:14px;"
+        "}").arg(objectName,
+                 DesignTokens::primaryLightest(),
+                 DesignTokens::border(),
+                 DesignTokens::primary(),
+                 DesignTokens::textBody()));
+    label->hide();
+    return label;
 }
 
 void relaxAndroidWidthConstraints(QWidget *root)
@@ -1396,7 +1428,18 @@ connect(m_deepAnalysisService, &LifeBalanceAI::Services::DeepAnalysisService::an
         m_isRequestPending = false;
         hideLoadingBar();
         qWarning() << "AI request failed:" << msg;
-        showHomePlanStatus(tr("AI 服务暂时不可用，可稍后重试。"));
+        const QString message = AIManager::hasChatApiKey()
+            ? uiText("\u0041\u0049 \u670d\u52a1\u6682\u65f6\u4e0d\u53ef\u7528\uff0c\u53ef\u7a0d\u540e\u91cd\u8bd5\u3002")
+            : uiText("\u0041\u0049 \u670d\u52a1\u672a\u914d\u7f6e\uff0c\u6682\u65f6\u65e0\u6cd5\u751f\u6210\u3002");
+        const AppRoute route = ui && ui->stackedWidget
+            ? routeForPageIndex(ui->stackedWidget->currentIndex())
+            : AppRoute::Home;
+        if (route == AppRoute::Analysis)
+            showAnalysisStatus(message);
+        else if (route == AppRoute::Report)
+            showReportStatus(message);
+        else
+            showHomePlanStatus(message);
 
 
 
@@ -4649,39 +4692,11 @@ void MainWindow::on_btnGoLogin_clicked()
 
 
 void MainWindow::on_btnSendVerifyCode_clicked()
-
-
-
 {
-
-
-
-    AnimatedDialog::info(
-
-
-
-        this,
-
-
-
-        tr("模拟验证"),
-
-
-
-        tr("【智衡健康】您的验证码为 1234，请在 5 分钟内输入。"));
-
-
-
+    AnimatedDialog::info(this,
+                         QString::fromUtf8("\u6a21\u62df\u9a8c\u8bc1"),
+                         LifeBalanceAI::Services::AccountFlowService::mockVerificationMessage());
 }
-
-
-
-
-
-
-
-// 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲
-
 
 
 // Registration
@@ -4697,347 +4712,34 @@ void MainWindow::on_btnSendVerifyCode_clicked()
 
 
 void MainWindow::on_btnRegister_clicked()
-
-
-
 {
+    LifeBalanceAI::Models::RegisterInput input;
+    input.phone = ui->editPhoneReg->text().trimmed();
+    input.password = ui->editPwdReg->text();
+    input.verifyCode = ui->editVerifyCode->text().trimmed();
+    input.role = ui->comboRole->currentIndex() == 1
+        ? QStringLiteral("Ascendant")
+        : QStringLiteral("Explorer");
 
-
-
-    QString phone       = ui->editPhoneReg->text().trimmed();
-
-
-
-    QString password    = ui->editPwdReg->text();
-
-
-
-    QString verifyCode  = ui->editVerifyCode->text().trimmed();
-
-
-
-
-
-
-
-    if (phone.isEmpty()) {
-
-
-
-        AnimatedDialog::warn(this, tr("注册失败"), tr("手机号不能为空！"));
-
-
-
+    const auto result = LifeBalanceAI::Services::AccountFlowService::registerWithPassword(input);
+    if (!result.ok) {
+        AnimatedDialog::warn(this,
+                             QString::fromUtf8("\u6ce8\u518c\u5931\u8d25"),
+                             result.message);
         return;
-
-
-
     }
 
-
-
-    if (password.isEmpty()) {
-
-
-
-        AnimatedDialog::warn(this, tr("注册失败"), tr("密码不能为空！"));
-
-
-
-        return;
-
-
-
-    }
-
-
-
-    if (verifyCode.isEmpty()) {
-
-
-
-        AnimatedDialog::warn(this, tr("注册失败"), tr("请输入验证码！"));
-
-
-
-        return;
-
-
-
-    }
-
-
-
-    if (verifyCode != QStringLiteral("1234")) {
-
-
-
-        AnimatedDialog::warn(this, tr("注册失败"), tr("验证码错误，请重新输入！"));
-
-
-
-        return;
-
-
-
-    }
-
-
-
-
-
-
-
-    // Input validation via UserService
-
-
-
-    {
-
-
-
-        LifeBalanceAI::Services::UserService svc;
-
-
-
-        QString err = svc.validatePhone(phone);
-
-
-
-        if (!err.isEmpty()) { AnimatedDialog::warn(this, tr("注册失败"), err); return; }
-
-
-
-        err = svc.validatePassword(password);
-
-
-
-        if (!err.isEmpty()) { AnimatedDialog::warn(this, tr("注册失败"), err); return; }
-
-
-
-    }
-
-
-
-
-
-
-
-    QString role;
-
-
-
-    switch (ui->comboRole->currentIndex()) {
-
-
-
-    case 0: role = QStringLiteral("Explorer");  break;
-
-
-
-    case 1: role = QStringLiteral("Ascendant"); break;
-
-
-
-    default:role = QStringLiteral("Explorer");  break;
-
-
-
-    }
-
-
-
-
-
-
-
-    QSqlDatabase &db = DatabaseManager::instance().database();
-
-
-
-    QSqlQuery query(db);
-
-
-
-
-
-
-
-    query.prepare(QStringLiteral("SELECT id FROM Users WHERE username = :phone"));
-
-
-
-    query.bindValue(QStringLiteral(":phone"), phone);
-
-
-
-    if (!query.exec()) {
-
-
-
-        AnimatedDialog::warn(this, tr("数据库错误"),
-
-
-
-                              tr("查询用户时出错：%1").arg(query.lastError().text()));
-
-
-
-        return;
-
-
-
-    }
-
-
-
-    if (query.next()) {
-
-
-
-        AnimatedDialog::warn(this, tr("注册失败"),
-
-
-
-                             tr("该手机号已被注册，请直接登录或使用其他号码！"));
-
-
-
-        return;
-
-
-
-    }
-
-
-
-
-
-
-
-    QString salt = DatabaseManager::instance().generateSalt();
-
-
-
-    QString hashedPwd = DatabaseManager::instance().hashPassword(password, salt);
-
-
-
-
-
-
-
-    query.prepare(QStringLiteral(
-
-
-
-        "INSERT INTO Users (username, password, salt, role) VALUES (:phone, :pwd, :salt, :role)"));
-
-
-
-    query.bindValue(QStringLiteral(":phone"), phone);
-
-
-
-    query.bindValue(QStringLiteral(":pwd"),   hashedPwd);
-
-
-
-    query.bindValue(QStringLiteral(":salt"),  salt);
-
-
-
-    query.bindValue(QStringLiteral(":role"),  role);
-
-
-
-
-
-
-
-    if (!query.exec()) {
-
-
-
-        AnimatedDialog::warn(this, tr("数据库错误"),
-
-
-
-                              tr("插入用户时出错：%1").arg(query.lastError().text()));
-
-
-
-        return;
-
-
-
-    }
-
-
-
-    if (query.numRowsAffected() <= 0) {
-
-
-
-        AnimatedDialog::warn(this, tr("注册失败"), tr("写入数据库失败，请稍后重试！"));
-
-
-
-        return;
-
-
-
-    }
-
-
-
-
-
-
-
-    AnimatedDialog::info(this, tr("注册成功"), tr("账号注册成功！请返回登录。"));
-
-
-
-
-
-
+    AnimatedDialog::info(this,
+                         QString::fromUtf8("\u6ce8\u518c\u6210\u529f"),
+                         result.message);
 
     ui->editPhoneReg->clear();
-
-
-
     ui->editPwdReg->clear();
-
-
-
     ui->editVerifyCode->clear();
-
-
-
     ui->comboRole->setCurrentIndex(0);
 
-
-
-
-
-
-
-    navigateTo(AppRoute::Login, false);
-
-
-
+    navigateTo(result.nextRoute, false);
 }
-
-
-
-
-
-
-
-// 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲
-
 
 
 // Login
@@ -5054,45 +4756,51 @@ void MainWindow::on_btnRegister_clicked()
 
 void MainWindow::onForgotPassword()
 {
-    // Step 1: Enter phone number
     bool ok = false;
-    QString phone = AnimatedInputDialog::getText(this, tr("忘记密码"), tr("请输入注册时使用的手机号："), QString(), &ok);
-    if (!ok || phone.trimmed().isEmpty()) return;
+    QString phone = AnimatedInputDialog::getText(
+        this,
+        QString::fromUtf8("\u5fd8\u8bb0\u5bc6\u7801"),
+        QString::fromUtf8("\u8bf7\u8f93\u5165\u6ce8\u518c\u65f6\u4f7f\u7528\u7684\u624b\u673a\u53f7\uff1a"),
+        QString(),
+        &ok);
+    if (!ok || phone.trimmed().isEmpty())
+        return;
     phone = phone.trimmed();
 
-    // Check phone exists
-    LifeBalanceAI::Services::UserService svc;
-    int userId = svc.getUserIdByPhone(phone);
-    if (userId < 0) {
-        AnimatedDialog::warn(this, tr("找回失败"), tr("该手机号未注册，请先注册账号。"));
+    AnimatedDialog::info(this,
+                         QString::fromUtf8("\u6a21\u62df\u9a8c\u8bc1"),
+                         LifeBalanceAI::Services::AccountFlowService::mockVerificationMessage());
+
+    const QString code = AnimatedInputDialog::getText(
+        this,
+        QString::fromUtf8("\u5fd8\u8bb0\u5bc6\u7801"),
+        QString::fromUtf8("\u8bf7\u8f93\u5165\u9a8c\u8bc1\u7801\uff1a"),
+        QString(),
+        &ok);
+    if (!ok)
         return;
-    }
 
-    // Step 2: Show verification code (mock)
-    AnimatedDialog::info(this, tr("模拟验证"),
-        tr("【智衡健康】您的验证码为 1234，请在 5 分钟内输入。"));
-
-    // Step 3: Enter verification code
-    QString code = AnimatedInputDialog::getText(this, tr("忘记密码"), tr("请输入验证码："), QString(), &ok);
-    if (!ok || code.trimmed() != QStringLiteral("1234")) {
-        AnimatedDialog::warn(this, tr("验证失败"), tr("验证码错误，请重试。"));
+    const QString newPassword = AnimatedInputDialog::getText(
+        this,
+        QString::fromUtf8("\u5fd8\u8bb0\u5bc6\u7801"),
+        QString::fromUtf8("\u8bf7\u8f93\u5165\u65b0\u5bc6\u7801\uff08\u81f3\u5c11 6 \u4f4d\uff09\uff1a"),
+        QString(),
+        &ok);
+    if (!ok)
         return;
-    }
 
-    // Step 4: Enter new password
-    QString newPwd = AnimatedInputDialog::getText(this, tr("忘记密码"), tr("请输入新密码（至少6位）："), QString(), &ok);
-    if (!ok || newPwd.length() < 6) {
-        AnimatedDialog::warn(this, tr("重置失败"), tr("密码长度至少6位，请重试。"));
-        return;
+    const auto result = LifeBalanceAI::Services::AccountFlowService::resetPasswordWithCode(
+        phone, code, newPassword);
+    if (result.ok) {
+        AnimatedDialog::info(this,
+                             QString::fromUtf8("\u6210\u529f"),
+                             result.message);
+    } else {
+        AnimatedDialog::warn(this,
+                             QString::fromUtf8("\u91cd\u7f6e\u5931\u8d25"),
+                             result.message);
     }
-
-    // Step 5: Reset password
-    if (svc.resetPassword(userId, newPwd))
-        AnimatedDialog::info(this, tr("成功"), tr("密码已重置，请使用新密码登录。"));
-    else
-        AnimatedDialog::warn(this, tr("错误"), tr("重置密码失败，请稍后重试。"));
 }
-
 void MainWindow::on_btnLogin_clicked()
 {
     const QString phone = ui->editPhoneLogin->text().trimmed();
@@ -6961,6 +6669,14 @@ void MainWindow::requestAIPlan()
     qDebug() << "Sending profile to AI:" << userProfile;
 
 
+    if (!AIManager::hasChatApiKey()) {
+        m_isRequestPending = false;
+        hideLoadingBar();
+        showHomePlanStatus(uiText("\u0041\u0049 \u670d\u52a1\u672a\u914d\u7f6e\uff0c\u6682\u65f6\u65e0\u6cd5\u751f\u6210\u8ba1\u5212\u3002"));
+        return;
+    }
+
+
 
 
 
@@ -7140,6 +6856,41 @@ void MainWindow::showHomePlanStatus(const QString &message)
         m_goalContentEdit->setPlainText(message);
     if (statusBar())
         statusBar()->showMessage(message, 4500);
+}
+
+void MainWindow::showAnalysisStatus(const QString &message)
+{
+    QLabel *status = ui && ui->stackedWidget
+        ? ui->stackedWidget->findChild<QLabel *>(QStringLiteral("analysisStatusLabel"))
+        : nullptr;
+    if (status) {
+        status->setText(message);
+        status->show();
+    }
+    if (statusBar())
+        statusBar()->showMessage(message, 4500);
+}
+
+void MainWindow::showReportStatus(const QString &message)
+{
+    QLabel *status = ui && ui->stackedWidget
+        ? ui->stackedWidget->findChild<QLabel *>(QStringLiteral("reportStatusLabel"))
+        : nullptr;
+    if (status) {
+        status->setText(message);
+        status->show();
+    }
+    if (statusBar())
+        statusBar()->showMessage(message, 4500);
+}
+
+void showUserActionNotice(QWidget *parent,
+                          const QString &title,
+                          const QString &message,
+                          const std::function<void(const QString &)> &statusSink)
+{
+    statusSink(message);
+    AnimatedDialog::info(parent, title, message);
 }
 
 
@@ -9580,135 +9331,57 @@ void MainWindow::on_btnBackToMain_clicked()
 
 
 void MainWindow::onDeepAnalysisTriggered()
-
-
-
 {
-
-
-
     qDebug() << "onDeepAnalysisTriggered called";
 
-
-
     if (m_currentUserId < 0) {
-
-
-
-        AnimatedDialog::warn(this, tr("错误"), tr("未检测到登录用户！"));
-
-
-
+        showUserActionNotice(this,
+                             uiText("\u63d0\u793a"),
+                             uiText("\u672a\u68c0\u6d4b\u5230\u767b\u5f55\u7528\u6237\uff0c\u8bf7\u91cd\u65b0\u767b\u5f55\u540e\u518d\u8bd5\u3002"),
+                             [this](const QString &message) { showAnalysisStatus(message); });
         return;
-
-
-
     }
 
-
-
-    QString role = DatabaseManager::instance().getUserRole(m_currentUserId);
-
-
-
+    const QString role = DatabaseManager::instance().getUserRole(m_currentUserId);
     if (role != QStringLiteral("Ascendant")) {
-
-
-
-        AnimatedDialog::info(this, tr("提示"),
-
-
-
-            tr("该功能需要升级为律行者，请前往个人中心升级。"));
-
-
-
+        showUserActionNotice(this,
+                             uiText("\u9700\u8981\u5347\u7ea7"),
+                             uiText("\u6df1\u5ea6\u5206\u6790\u9700\u8981\u5347\u7ea7\u4e3a\u5f8b\u884c\u8005\u540e\u4f7f\u7528\u3002"),
+                             [this](const QString &message) { showAnalysisStatus(message); });
         return;
-
-
-
     }
-
-
-
-
-
-
 
     if (!m_deepAnalysisService) {
-
-
-
-        AnimatedDialog::warn(this, tr("错误"), tr("分析服务未初始化！"));
-
-
-
+        showUserActionNotice(this,
+                             uiText("\u670d\u52a1\u4e0d\u53ef\u7528"),
+                             uiText("\u5206\u6790\u670d\u52a1\u672a\u521d\u59cb\u5316\uff0c\u8bf7\u91cd\u542f\u5e94\u7528\u540e\u518d\u8bd5\u3002"),
+                             [this](const QString &message) { showAnalysisStatus(message); });
         return;
-
-
-
     }
-
-
-
-    // Check if already analyzed this week
-
-
 
     if (m_deepAnalysisService->hasAnalysisThisWeek(m_currentUserId)) {
-
-
-
         auto result = m_deepAnalysisService->getLatestAnalysis(m_currentUserId);
-
-
-
         if (!result.nutritionAdvice.isEmpty()) {
-
-
-
             DeepAnalysisDialog dlg(this);
-
-
-
             dlg.setAnalysisResult(result);
-
-
-
             dlg.exec();
-
-
-
             return;
-
-
-
         }
-
-
-
     }
 
+    if (!AIManager::hasChatApiKey()) {
+        hideLoadingBar();
+        showUserActionNotice(this,
+                             uiText("\u0041\u0049 \u672a\u914d\u7f6e"),
+                             uiText("\u0041\u0049 \u670d\u52a1\u672a\u914d\u7f6e\uff0c\u6682\u65f6\u65e0\u6cd5\u751f\u6210\u5206\u6790\u3002"),
+                             [this](const QString &message) { showAnalysisStatus(message); });
+        return;
+    }
 
-
-    // Request new analysis
-
-
-
-    showLoadingBar(tr("正在生成深度分析"));
-
-
-
+    showAnalysisStatus(uiText("\u6b63\u5728\u751f\u6210\u6df1\u5ea6\u5206\u6790\uff0c\u8bf7\u7a0d\u7b49..."));
+    showLoadingBar(uiText("\u6b63\u5728\u751f\u6210\u6df1\u5ea6\u5206\u6790"));
     m_deepAnalysisService->requestAnalysis(m_currentUserId);
-
-
-
 }
-
-
-
-
-
 
 
 void MainWindow::onDeepAnalysisReady(int userId, const LifeBalanceAI::Models::DeepAnalysisResult &result)
@@ -9756,33 +9429,16 @@ void MainWindow::onNicknameGenerated(const QString &nickname)
 }
 
 void MainWindow::onDeepAnalysisError(int userId, const QString &error)
-
-
-
 {
-
-
-
     Q_UNUSED(userId);
-
-
-
     hideLoadingBar();
-
-
-
     qWarning() << "Deep analysis failed:" << error;
-    if (statusBar())
-        statusBar()->showMessage(tr("分析暂时不可用，可稍后重试。"), 5000);
 
-
-
+    const QString message = AIManager::hasChatApiKey()
+        ? uiText("\u5206\u6790\u6682\u65f6\u4e0d\u53ef\u7528\uff0c\u53ef\u7a0d\u540e\u91cd\u8bd5\u3002")
+        : uiText("\u0041\u0049 \u670d\u52a1\u672a\u914d\u7f6e\uff0c\u6682\u65f6\u65e0\u6cd5\u751f\u6210\u5206\u6790\u3002");
+    showAnalysisStatus(message);
 }
-
-
-
-
-
 
 
 // ============================================================
@@ -10357,6 +10013,9 @@ int MainWindow::setupAnalysisPage()
 
         vlay->addWidget(btnAnalyze);
 
+        auto *analysisStatus = createInlineStatusLabel(QStringLiteral("analysisStatusLabel"), existing);
+        vlay->addWidget(analysisStatus);
+
 
 
 
@@ -10815,6 +10474,9 @@ int MainWindow::setupReportPage()
 
     vlay->addWidget(btnGenerate);
 
+    auto *reportStatus = createInlineStatusLabel(QStringLiteral("reportStatusLabel"), existing);
+    vlay->addWidget(reportStatus);
+
 
 
 
@@ -10894,89 +10556,73 @@ int MainWindow::setupReportPage()
 
 
 void MainWindow::onGenerateReport()
-
-
-
 {
-
-
-
     if (m_currentUserId < 0) {
-
-
-
-        AnimatedDialog::warn(this, tr("错误"), tr("未检测到登录用户！"));
-
-
-
+        showUserActionNotice(this,
+                             uiText("\u63d0\u793a"),
+                             uiText("\u672a\u68c0\u6d4b\u5230\u767b\u5f55\u7528\u6237\uff0c\u8bf7\u91cd\u65b0\u767b\u5f55\u540e\u518d\u8bd5\u3002"),
+                             [this](const QString &message) { showReportStatus(message); });
         return;
-
-
-
     }
-
-
 
     if (!m_reportService) {
-
-
-
-        AnimatedDialog::warn(this, tr("错误"), tr("报告服务未初始化！"));
-
-
-
+        showUserActionNotice(this,
+                             uiText("\u670d\u52a1\u4e0d\u53ef\u7528"),
+                             uiText("\u5468\u62a5\u670d\u52a1\u672a\u521d\u59cb\u5316\uff0c\u8bf7\u91cd\u542f\u5e94\u7528\u540e\u518d\u8bd5\u3002"),
+                             [this](const QString &message) { showReportStatus(message); });
         return;
-
-
-
     }
 
+    if (DatabaseManager::instance().getLatestPlanId(m_currentUserId) < 0) {
+        showUserActionNotice(this,
+                             uiText("\u6682\u65e0\u8ba1\u5212"),
+                             uiText("\u6682\u65e0\u53ef\u7528\u8ba1\u5212\u6570\u636e\uff0c\u9700\u8981\u5148\u751f\u6210\u5065\u5eb7\u8ba1\u5212\u540e\u518d\u751f\u6210\u5468\u62a5\u3002"),
+                             [this](const QString &message) { showReportStatus(message); });
+        return;
+    }
 
+    const auto reports = DatabaseManager::instance().getReportHistory(m_currentUserId);
+    const QString todayStr = QDate::currentDate().toString(QStringLiteral("yyyy-MM-dd"));
+    for (const auto &report : reports) {
+        if (report.type != QStringLiteral("deep_analysis") && report.createdAt.startsWith(todayStr)) {
+            showUserActionNotice(this,
+                                 uiText("\u4eca\u65e5\u5df2\u751f\u6210"),
+                                 uiText("\u4eca\u5929\u5df2\u7ecf\u751f\u6210\u8fc7\u5468\u62a5\uff0c\u660e\u5929\u518d\u6765\u770b\u65b0\u7684\u603b\u7ed3\u5427\u3002"),
+                                 [this](const QString &message) { showReportStatus(message); });
+            return;
+        }
+    }
+
+    const LifeBalanceAI::Models::UserInfo info =
+        DatabaseManager::instance().getUserInfo(m_currentUserId);
+    if (info.role != QStringLiteral("Ascendant") && info.streakDays < 30) {
+        showUserActionNotice(this,
+                             uiText("\u6761\u4ef6\u4e0d\u8db3"),
+                             uiText("\u63a2\u7d22\u8005\u9700\u8fde\u7eed\u6253\u5361 30 \u5929\u624d\u80fd\u751f\u6210\u5468\u62a5\u3002\u4f60\u5f53\u524d\u8fde\u7eed\u6253\u5361 %1 \u5929\uff1b\u5347\u7ea7\u5f8b\u884c\u8005\u53ef\u89e3\u9501\u6bcf\u5468\u62a5\u544a\u3002").arg(info.streakDays),
+                             [this](const QString &message) { showReportStatus(message); });
+        return;
+    }
+
+    if (!AIManager::hasChatApiKey()) {
+        showUserActionNotice(this,
+                             uiText("\u0041\u0049 \u672a\u914d\u7f6e"),
+                             uiText("\u0041\u0049 \u670d\u52a1\u672a\u914d\u7f6e\uff0c\u6682\u65f6\u65e0\u6cd5\u751f\u6210\u5468\u62a5\u3002"),
+                             [this](const QString &message) { showReportStatus(message); });
+        return;
+    }
 
     if (!m_reportService->canGenerateReport(m_currentUserId)) {
-
-        LifeBalanceAI::Models::UserInfo info =
-            DatabaseManager::instance().getUserInfo(m_currentUserId);
-
-        const bool needsLongStreak =
-            info.role != QStringLiteral("Ascendant") && info.streakDays < 30;
-
-        QString message = needsLongStreak
-            ? tr("探索者需连续打卡 30 天才能生成周报。\n你当前连续打卡 %1 天；升级律行者可解锁每周报告。").arg(info.streakDays)
-            : tr("今天已经生成过周报，或暂无可用于生成报告的规划数据。");
-
-
-
-        AnimatedDialog::info(this, tr("提示"),
-
-
-
-            message);
-
-
-
+        showUserActionNotice(this,
+                             uiText("\u6682\u65f6\u4e0d\u53ef\u7528"),
+                             uiText("\u6682\u65f6\u65e0\u6cd5\u751f\u6210\u5468\u62a5\uff0c\u8bf7\u68c0\u67e5\u8ba1\u5212\u548c\u6253\u5361\u6570\u636e\u540e\u91cd\u8bd5\u3002"),
+                             [this](const QString &message) { showReportStatus(message); });
         return;
-
-
-
     }
 
-
-
-    showLoadingBar(tr("正在生成健康周报"));
-
-
-
+    showReportStatus(uiText("\u6b63\u5728\u751f\u6210\u5065\u5eb7\u5468\u62a5\uff0c\u8bf7\u7a0d\u7b49..."));
+    showLoadingBar(uiText("\u6b63\u5728\u751f\u6210\u5065\u5eb7\u5468\u62a5"));
     m_reportService->generateReport(m_currentUserId);
-
-
-
 }
-
-
-
-
-
 
 
 void MainWindow::onExportReport(int reportId, const QString &format)
@@ -11115,41 +10761,16 @@ void MainWindow::onReportReady(int userId, const LifeBalanceAI::Models::ReportDa
 
 
 void MainWindow::onReportError(int userId, const QString &error)
-
-
-
 {
-
-
-
     Q_UNUSED(userId);
-
-
-
     hideLoadingBar();
-
-
-
     qWarning() << "Report generation failed:" << error;
-    if (statusBar())
-        statusBar()->showMessage(tr("周报暂时不可用，可稍后重试。"), 5000);
 
-
-
+    const QString message = AIManager::hasChatApiKey()
+        ? uiText("\u5468\u62a5\u6682\u65f6\u4e0d\u53ef\u7528\uff0c\u53ef\u7a0d\u540e\u91cd\u8bd5\u3002")
+        : uiText("\u0041\u0049 \u670d\u52a1\u672a\u914d\u7f6e\uff0c\u6682\u65f6\u65e0\u6cd5\u751f\u6210\u5468\u62a5\u3002");
+    showReportStatus(message);
 }
-
-
-
-
-
-
-
-// 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲
-
-
-
-// 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲
-
 
 
 // Admin Panel (page_admin)

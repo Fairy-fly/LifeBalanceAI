@@ -112,6 +112,11 @@ AIManager::AIManager(QObject *parent)
 
 AIManager::~AIManager() = default;
 
+bool AIManager::hasChatApiKey()
+{
+    return !getApiKey().isEmpty();
+}
+
 void AIManager::generateImage(const QString &prompt, const QString &outputPath)
 {
     const QString &key = getOpenAiKey();

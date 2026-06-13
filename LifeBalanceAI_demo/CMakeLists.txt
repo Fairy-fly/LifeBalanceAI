@@ -60,6 +60,8 @@ qt_add_executable(LifeBalanceAI_demo
     services/reportservice.h
     services/authflowservice.cpp
     services/authflowservice.h
+    services/accountflowservice.cpp
+    services/accountflowservice.h
     services/authsessionservice.cpp
     services/authsessionservice.h
     services/homeplanservice.cpp
@@ -191,6 +193,31 @@ if (NOT ANDROID)
     )
 
     add_test(NAME AuthFlowService COMMAND LifeBalanceAI_authflow_tests)
+
+    qt_add_executable(LifeBalanceAI_accountflow_tests
+        tests/test_accountflowservice.cpp
+        services/accountflowservice.cpp
+        services/accountflowservice.h
+        services/userservice.cpp
+        services/userservice.h
+        services/profileflowservice.cpp
+        services/profileflowservice.h
+        databasemanager.cpp
+        databasemanager.h
+        models/dto.h
+        approute.h
+    )
+
+    target_include_directories(LifeBalanceAI_accountflow_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
+    target_link_libraries(LifeBalanceAI_accountflow_tests
+        PRIVATE
+            Qt::Core
+            Qt::Sql
+            Qt::Test
+    )
+
+    add_test(NAME AccountFlowService COMMAND LifeBalanceAI_accountflow_tests)
 
     qt_add_executable(LifeBalanceAI_profileflow_tests
         tests/test_profileflowservice.cpp

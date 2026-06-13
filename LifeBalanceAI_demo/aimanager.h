@@ -13,6 +13,7 @@ class AIManager : public QObject
 
 public:
     static AIManager &instance();
+    static bool hasChatApiKey();
 
     /** Full plan generation (initial creation) */
     void generatePlan(const QString &userProfile);

@@ -31,6 +31,29 @@ struct AuthFlowResult {
     bool     fromAutoLogin = false;
 };
 
+struct RegisterInput {
+    QString phone;
+    QString password;
+    QString verifyCode;
+    QString role;
+};
+
+struct RegistrationResult {
+    bool     ok        = false;
+    int      userId    = -1;
+    QString  phone;
+    QString  role;
+    QString  message;
+    AppRoute nextRoute = AppRoute::Login;
+};
+
+struct PasswordResetResult {
+    bool    ok     = false;
+    int     userId = -1;
+    QString phone;
+    QString message;
+};
+
 struct ProfileData {
     int     uid      = 0;
     QString nickname;

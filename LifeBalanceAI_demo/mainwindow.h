@@ -132,6 +132,8 @@ private:
     void showLoadingBar(const QString &message = QString());
     void hideLoadingBar();
     void showHomePlanStatus(const QString &message);
+    void showAnalysisStatus(const QString &message);
+    void showReportStatus(const QString &message);
 
     // ── New helpers ───────────────────────────────────────────────
     /** Programmatically add "查看昨日规划" button, all-done label, and 12 adjust buttons */
