@@ -1,4 +1,4 @@
-﻿#include "mainwindow.h"
+#include "mainwindow.h"
 
 
 
@@ -15,6 +15,11 @@
 
 
 #include "services/userservice.h"
+#include "services/authflowservice.h"
+#include "services/authsessionservice.h"
+#include "services/homeplanservice.h"
+#include "services/airesponseparser.h"
+#include "services/profileflowservice.h"
 
 
 
@@ -32,6 +37,10 @@
 
 #include "motionhelper.h"
 
+#include <QVariantAnimation>
+
+#include "thememanager.h"
+
 #include "uifactory.h"
 
 #include "loadingoverlay.h"
@@ -44,6 +53,9 @@
 
 #include "calendargridview.h"
 
+#include "mobileshellcontroller.h"
+#include "platformlayoutpolicy.h"
+
 
 
 
@@ -54,6 +66,7 @@
 
 
 
+#include <QCoreApplication>
 #include <QMessageBox>
 
 
@@ -67,8 +80,6 @@
 
 
 #include <QAbstractScrollArea>
-
-
 
 #include <QScrollArea>
 
@@ -115,6 +126,8 @@
 
 
 #include <QTextEdit>
+#include <QPlainTextEdit>
+#include <QFile>
 
 
 
@@ -202,15 +215,11 @@
 
 #include <QScrollerProperties>
 
-#include <QSettings>
-
 #include <QSpinBox>
 
 #include <QStackedWidget>
 
 #include <QFrame>
-
-#include <QUuid>
 
 #include <algorithm>
 
@@ -218,9 +227,18 @@
 
 namespace {
 
+QString numericPrefix(const QString &text)
+{
+    QString value = text.trimmed();
+    value.remove(QStringLiteral("cm"), Qt::CaseInsensitive);
+    value.remove(QStringLiteral("kg"), Qt::CaseInsensitive);
+    return value.trimmed();
+}
+
 void relaxAndroidWidthConstraints(QWidget *root)
 {
 #ifdef Q_OS_ANDROID
+    LifeBalanceAI::Ui::PlatformLayoutPolicy::applyMobileScrollPolicy(root);
     if (!root)
         return;
 
@@ -269,6 +287,36 @@ void installKineticVerticalScroll(QWidget *root)
         if (!area || !area->viewport())
             continue;
 
+        if (qobject_cast<QTextEdit *>(area) || qobject_cast<QPlainTextEdit *>(area)) {
+            area->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+            area->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+#ifdef Q_OS_ANDROID
+            if (area->verticalScrollBar()) {
+                area->verticalScrollBar()->setFixedWidth(0);
+                area->verticalScrollBar()->hide();
+            }
+#endif
+            area->setAttribute(Qt::WA_AcceptTouchEvents, true);
+            area->viewport()->setAttribute(Qt::WA_AcceptTouchEvents, true);
+            QScroller::grabGesture(area->viewport(), QScroller::TouchGesture);
+
+            QScroller *scroller = QScroller::scroller(area->viewport());
+            QScrollerProperties properties = scroller->scrollerProperties();
+            properties.setScrollMetric(QScrollerProperties::DragVelocitySmoothingFactor, 0.16);
+            properties.setScrollMetric(QScrollerProperties::DecelerationFactor, 1.65);
+            properties.setScrollMetric(QScrollerProperties::MaximumVelocity, 0.18);
+            properties.setScrollMetric(QScrollerProperties::MinimumVelocity, 0.0);
+            properties.setScrollMetric(QScrollerProperties::ScrollingCurve, QEasingCurve(QEasingCurve::OutQuad));
+            properties.setScrollMetric(QScrollerProperties::DragStartDistance, 0.012);
+            properties.setScrollMetric(QScrollerProperties::HorizontalOvershootPolicy, QScrollerProperties::OvershootAlwaysOff);
+            properties.setScrollMetric(QScrollerProperties::VerticalOvershootPolicy, QScrollerProperties::OvershootAlwaysOff);
+            properties.setScrollMetric(QScrollerProperties::OvershootDragResistanceFactor, 1.0);
+            properties.setScrollMetric(QScrollerProperties::OvershootScrollDistanceFactor, 0.0);
+            properties.setScrollMetric(QScrollerProperties::OvershootScrollTime, 0.0);
+            scroller->setScrollerProperties(properties);
+            continue;
+        }
+
         area->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
 #ifdef Q_OS_ANDROID
         area->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -286,11 +334,12 @@ void installKineticVerticalScroll(QWidget *root)
 
         QScroller *scroller = QScroller::scroller(area->viewport());
         QScrollerProperties properties = scroller->scrollerProperties();
-        properties.setScrollMetric(QScrollerProperties::DragVelocitySmoothingFactor, 0.08);
-        properties.setScrollMetric(QScrollerProperties::DecelerationFactor, 2.4);
-        properties.setScrollMetric(QScrollerProperties::MaximumVelocity, 0.04);
+        properties.setScrollMetric(QScrollerProperties::DragVelocitySmoothingFactor, 0.16);
+        properties.setScrollMetric(QScrollerProperties::DecelerationFactor, 1.65);
+        properties.setScrollMetric(QScrollerProperties::MaximumVelocity, 0.18);
         properties.setScrollMetric(QScrollerProperties::MinimumVelocity, 0.0);
         properties.setScrollMetric(QScrollerProperties::ScrollingCurve, QEasingCurve(QEasingCurve::OutQuad));
+        properties.setScrollMetric(QScrollerProperties::DragStartDistance, 0.012);
         properties.setScrollMetric(QScrollerProperties::HorizontalOvershootPolicy, QScrollerProperties::OvershootAlwaysOff);
         properties.setScrollMetric(QScrollerProperties::VerticalOvershootPolicy, QScrollerProperties::OvershootAlwaysOff);
         properties.setScrollMetric(QScrollerProperties::OvershootDragResistanceFactor, 1.0);
@@ -303,6 +352,7 @@ void installKineticVerticalScroll(QWidget *root)
 void normalizeAndroidHorizontalPosition(QWidget *root)
 {
 #ifdef Q_OS_ANDROID
+    LifeBalanceAI::Ui::PlatformLayoutPolicy::normalizeHorizontalPosition(root);
     if (!root)
         return;
 
@@ -335,6 +385,36 @@ void normalizeAndroidHorizontalPosition(QWidget *root)
 
 } // namespace
 
+// Force QTextEdit::document()->setTextWidth() from the nearest QScrollArea
+// viewport.  Preferring the viewport over wider ancestors like page_4 avoids
+// setting a fixed text width that's wider than the actual text area, which
+// would break rendering when the QTextEdit widget itself is narrow.
+static void forceTextWidth(QTextEdit *edit)
+{
+    if (!edit) return;
+
+    // Prefer the edit's own viewport width; never fall back to an outer
+    // QScrollArea viewport which is screen-wide and breaks wrapping.
+    int w = 0;
+    if (edit->viewport())
+        w = edit->viewport()->width();
+    if (w <= 0)
+        w = edit->width();
+
+    // Use the nearest QGroupBox as a reasonable width cap
+    for (QWidget *p = edit->parentWidget(); p; p = p->parentWidget()) {
+        if (auto *group = qobject_cast<QGroupBox *>(p)) {
+            if (group->width() > 0 && (w <= 0 || group->width() < w))
+                w = group->width();
+            break;
+        }
+    }
+
+    if (w > 0)
+        edit->document()->setTextWidth(w - 8);
+    edit->setLineWrapMode(QTextEdit::WidgetWidth);
+}
+
 
 
 
@@ -362,6 +442,8 @@ MainWindow::MainWindow(QWidget *parent)
 
 
     m_checkinService = new LifeBalanceAI::Services::CheckinService(this);
+
+    m_authSessionService = new LifeBalanceAI::Services::AuthSessionService(this);
 
 
 
@@ -393,7 +475,9 @@ MainWindow::MainWindow(QWidget *parent)
 
 
 
-    connect(m_deepAnalysisService, &LifeBalanceAI::Services::DeepAnalysisService::analysisReady,
+        connect(&AIManager::instance(), &AIManager::nicknameGenerated,
+            this, &MainWindow::onNicknameGenerated);
+connect(m_deepAnalysisService, &LifeBalanceAI::Services::DeepAnalysisService::analysisReady,
 
 
 
@@ -482,7 +566,8 @@ MainWindow::MainWindow(QWidget *parent)
 
 
 
-            if (m_currentUserId > 0 && ui->stackedWidget->currentIndex() == 3) {
+            const int homeIndex = ui->page_4 ? ui->stackedWidget->indexOf(ui->page_4) : 3;
+            if (m_currentUserId > 0 && ui->stackedWidget->currentIndex() == homeIndex) {
 
 
 
@@ -546,7 +631,7 @@ MainWindow::MainWindow(QWidget *parent)
 
 
 
-            navigateTo(4, false);  // back to page_5
+            navigateTo(AppRoute::Profile, false);  // back to page_5
 
 
 
@@ -930,7 +1015,7 @@ MainWindow::MainWindow(QWidget *parent)
 
 
 
-        QStringLiteral("<p style=\"margin:0;color:#999999;font-size:12px;\">还没有账号？</p>"
+        QStringLiteral("<p style=\"margin:0;color:#999999;font-size:16px;\">还没有账号？</p>"
 
 
 
@@ -942,7 +1027,7 @@ MainWindow::MainWindow(QWidget *parent)
 
 
 
-                       "font-size:13px;\">立即注册 →</a></p>"));
+                       "font-size:16px;\">立即注册 →</a></p>"));
 
 
 
@@ -1208,7 +1293,7 @@ MainWindow::MainWindow(QWidget *parent)
 
 
 
-            ui->stackedWidget->setCurrentIndex(1);
+            navigateTo(AppRoute::Register, false);
 
 
 
@@ -1240,7 +1325,7 @@ MainWindow::MainWindow(QWidget *parent)
 
 
 
-            ui->stackedWidget->setCurrentIndex(0);
+            navigateTo(AppRoute::Login, false);
 
 
 
@@ -1273,66 +1358,6 @@ MainWindow::MainWindow(QWidget *parent)
 
 
         // ============================================================
-
-
-
-    // Admin login link on page_2 (bottom-right, subtle)
-
-
-
-    // ============================================================
-
-
-
-    {
-
-
-
-        QLabel *lblAdmin = new QLabel(tr("<a href='admin' style='color:#999999; text-decoration:none; font-size:12px;'>管理员登录</a>"), ui->page_2);
-
-
-
-        lblAdmin->setAlignment(Qt::AlignRight | Qt::AlignBottom);
-
-
-
-        lblAdmin->setContentsMargins(0, 16, 16, 8);
-
-
-
-        connect(lblAdmin, &QLabel::linkActivated, this, [this](const QString &) {
-
-
-
-            ui->editPhoneLogin->setText(QStringLiteral("admin"));
-
-
-
-            ui->editPwdLogin->setText(QStringLiteral("admin123"));
-
-
-
-            on_btnLogin_clicked();
-
-
-
-        });
-
-
-
-        QVBoxLayout *loginLayout = qobject_cast<QVBoxLayout *>(ui->page_2->layout());
-
-
-
-        if (loginLayout)
-
-
-
-            loginLayout->addWidget(lblAdmin);
-
-
-
-    }
 
 
 
@@ -1370,7 +1395,8 @@ MainWindow::MainWindow(QWidget *parent)
 
         m_isRequestPending = false;
         hideLoadingBar();
-        AnimatedDialog::warn(this, tr("AI 请求失败"), msg);
+        qWarning() << "AI request failed:" << msg;
+        showHomePlanStatus(tr("AI 服务暂时不可用，可稍后重试。"));
 
 
 
@@ -1811,11 +1837,20 @@ MainWindow::MainWindow(QWidget *parent)
 
 
 
-    m_bottomNav = new BottomNavBar(this);
+    m_bottomNav = new BottomNavBar(centralWidget() ? centralWidget() : this);
 
 
 
     m_sideDrawer = new SideDrawer(centralWidget());
+
+
+
+    m_shellController = new MobileShellController(this);
+    m_shellController->setShellWidgets(m_bottomNav, ui->stackedWidget, centralWidget());
+    m_shellController->setRouteHandler([this](AppRoute route, bool animate) {
+        navigateTo(route, animate);
+    });
+    syncShellRouteIndexes();
 
 
 
@@ -1833,6 +1868,10 @@ MainWindow::MainWindow(QWidget *parent)
 
     if (grid) {
 #ifdef Q_OS_ANDROID
+        grid->addWidget(m_bottomNav, 1, 0);
+        grid->setRowStretch(0, 1);
+        grid->setRowMinimumHeight(1, 0);
+        grid->setRowStretch(1, 0);
         centralWidget()->installEventFilter(this);
 #else
         grid->addWidget(m_bottomNav, 1, 0);
@@ -1849,6 +1888,7 @@ MainWindow::MainWindow(QWidget *parent)
     });
 
     connect(ui->stackedWidget, &QStackedWidget::currentChanged, this, [this](int index) {
+        syncShellRouteIndexes();
         updateBottomNavVisibility(index);
     });
 
@@ -1910,11 +1950,9 @@ MainWindow::MainWindow(QWidget *parent)
 
             if (p4Layout) {
 #ifdef Q_OS_ANDROID
-                if (!p4->findChild<BottomNavBar *>(QStringLiteral("androidBottomNavHome"))) {
-                    BottomNavBar *homeNav = createAndroidPageNav(0, p4);
-                    homeNav->setObjectName(QStringLiteral("androidBottomNavHome"));
-                    p4Layout->addWidget(homeNav);
-                }
+                p4Layout->setStretch(2, 1);
+                p4Layout->setContentsMargins(0, 0, 0, 0);
+                p4->installEventFilter(this);
 #endif
 
 
@@ -2027,6 +2065,17 @@ void MainWindow::addRememberLoginControl()
         insertIndex = cardLayout->count();
     cardLayout->insertWidget(insertIndex, remember);
 
+    // Forgot password link
+    QPushButton *btnForgotPwd = new QPushButton(QString::fromUtf8("\u5fd8\u8bb0\u5bc6\u7801\uff1f"), loginCard);
+    btnForgotPwd->setFlat(true);
+    btnForgotPwd->setCursor(Qt::PointingHandCursor);
+    btnForgotPwd->setStyleSheet(QStringLiteral(
+        "QPushButton{font-family:\"MiSans Medium\",\"MiSans\",\"Microsoft YaHei UI\";"
+        "font-size:13px;color:#999999;border:none;background:transparent;text-align:left;padding:2px 0;}"
+        "QPushButton:hover{color:#4CAF7F;}"));
+    connect(btnForgotPwd, &QPushButton::clicked, this, &MainWindow::onForgotPassword);
+    cardLayout->insertWidget(insertIndex + 2, btnForgotPwd);
+
     if (ui->editPwdLogin)
         ui->editPwdLogin->setEchoMode(QLineEdit::Password);
 }
@@ -2038,50 +2087,34 @@ QCheckBox *MainWindow::rememberLoginCheckBox() const
         : nullptr;
 }
 
-QString MainWindow::currentDeviceId() const
-{
-    QSettings settings(QStringLiteral("LifeBalanceAI"), QStringLiteral("LifeBalanceAI"));
-    QString deviceId = settings.value(QStringLiteral("auth/deviceId")).toString();
-    if (deviceId.isEmpty()) {
-        deviceId = QUuid::createUuid().toString(QUuid::WithoutBraces);
-        settings.setValue(QStringLiteral("auth/deviceId"), deviceId);
-    }
-    return deviceId;
-}
-
 void MainWindow::saveAutoLoginSessionIfNeeded(int userId, const QString &role)
 {
     QCheckBox *remember = rememberLoginCheckBox();
-    if (!remember || !remember->isChecked() || role == QStringLiteral("admin")) {
-        if (remember && !remember->isChecked())
-            clearAutoLoginSession();
+    if (!m_authSessionService)
         return;
-    }
-
-    const QString deviceId = currentDeviceId();
-    const QString token = QUuid::createUuid().toString(QUuid::WithoutBraces)
-                        + QUuid::createUuid().toString(QUuid::WithoutBraces);
-    if (!DatabaseManager::instance().saveDeviceSession(userId, deviceId, token))
-        return;
-
-    QSettings settings(QStringLiteral("LifeBalanceAI"), QStringLiteral("LifeBalanceAI"));
-    settings.setValue(QStringLiteral("auth/autoLoginEnabled"), true);
-    settings.setValue(QStringLiteral("auth/userId"), userId);
-    settings.setValue(QStringLiteral("auth/deviceId"), deviceId);
-    settings.setValue(QStringLiteral("auth/sessionToken"), token);
+    m_authSessionService->saveSession(userId, role, remember && remember->isChecked());
 }
 
 void MainWindow::clearAutoLoginSession()
 {
-    QSettings settings(QStringLiteral("LifeBalanceAI"), QStringLiteral("LifeBalanceAI"));
-    const int userId = settings.value(QStringLiteral("auth/userId"), -1).toInt();
-    const QString deviceId = settings.value(QStringLiteral("auth/deviceId")).toString();
-    if (userId > 0)
-        DatabaseManager::instance().clearDeviceSession(userId, deviceId);
+    if (m_authSessionService)
+        m_authSessionService->clearSession();
+}
 
-    settings.remove(QStringLiteral("auth/autoLoginEnabled"));
-    settings.remove(QStringLiteral("auth/userId"));
-    settings.remove(QStringLiteral("auth/sessionToken"));
+void MainWindow::logoutToLogin()
+{
+    clearAutoLoginSession();
+    m_currentUserId = -1;
+    m_adminUserId = -1;
+
+    if (ui && ui->editPwdLogin)
+        ui->editPwdLogin->clear();
+    if (rememberLoginCheckBox())
+        rememberLoginCheckBox()->setChecked(true);
+    if (m_bottomNav)
+        m_bottomNav->setVisible(false);
+
+    navigateTo(AppRoute::Login, false);
 }
 
 bool MainWindow::tryAutoLogin()
@@ -2089,42 +2122,28 @@ bool MainWindow::tryAutoLogin()
     if (!ui || !ui->stackedWidget || ui->stackedWidget->currentIndex() != 0)
         return false;
 
-    QSettings settings(QStringLiteral("LifeBalanceAI"), QStringLiteral("LifeBalanceAI"));
-    if (!settings.value(QStringLiteral("auth/autoLoginEnabled"), false).toBool())
+    if (!m_authSessionService)
         return false;
 
-    const int userId = settings.value(QStringLiteral("auth/userId"), -1).toInt();
-    const QString deviceId = settings.value(QStringLiteral("auth/deviceId")).toString();
-    const QString token = settings.value(QStringLiteral("auth/sessionToken")).toString();
-    if (!DatabaseManager::instance().validateDeviceSession(userId, deviceId, token)) {
-        clearAutoLoginSession();
+    const LifeBalanceAI::Models::AuthFlowResult result = m_authSessionService->tryLoadValidSession();
+    if (!result.ok)
         return false;
-    }
-
-    LifeBalanceAI::Models::UserInfo info = DatabaseManager::instance().getUserInfo(userId);
-    if (info.uid <= 0 || info.role == QStringLiteral("admin")) {
-        clearAutoLoginSession();
-        return false;
-    }
 
     if (ui->editPhoneLogin)
-        ui->editPhoneLogin->setText(info.phone);
+        ui->editPhoneLogin->setText(result.phone);
     if (QCheckBox *remember = rememberLoginCheckBox())
         remember->setChecked(true);
 
-    handleAuthenticatedUser(userId, info.phone, info.role, true);
+    handleAuthenticatedUser(result);
     return true;
 }
 
-void MainWindow::handleAuthenticatedUser(int userId, const QString &phone, const QString &role, bool fromAutoLogin)
+void MainWindow::handleAuthenticatedUser(const LifeBalanceAI::Models::AuthFlowResult &result)
 {
-    m_currentUserId = userId;
-
-    if (!fromAutoLogin)
-        saveAutoLoginSessionIfNeeded(userId, role);
+    m_currentUserId = result.userId;
 
     QString welcomeName = QString::fromUtf8("\u6b22\u8fce\u56de\u6765\n\u4eca\u5929\u4e5f\u4e00\u8d77\u7167\u987e\u597d\u8eab\u4f53");
-    if (role == QStringLiteral("admin")) {
+    if (result.role == QStringLiteral("admin")) {
         welcomeName = QString::fromUtf8("\u6b22\u8fce\u56de\u6765\uff0c\u7ba1\u7406\u5458\n\u4eca\u5929\u4e5f\u4e00\u8d77\u7167\u987e\u597d\u8eab\u4f53");
     } else if (DatabaseManager::instance().hasProfile(m_currentUserId)) {
         LifeBalanceAI::Models::ProfileData prof = DatabaseManager::instance().getProfile(m_currentUserId);
@@ -2137,32 +2156,49 @@ void MainWindow::handleAuthenticatedUser(int userId, const QString &phone, const
 
     qDebug() << "=== Login Success ===";
     qDebug() << "User ID:" << m_currentUserId;
-    qDebug() << "Phone:" << phone;
-    qDebug() << "Role:" << role;
-    qDebug() << "Auto login:" << fromAutoLogin;
+    qDebug() << "Phone:" << result.phone;
+    qDebug() << "Role:" << result.role;
+    qDebug() << "Auto login:" << result.fromAutoLogin;
 
-    showLoginSuccessTransition(welcomeName, [this, role]() {
-        if (role == QStringLiteral("admin")) {
+    std::function<void()> routeAction = [this, result]() {
+        if (result.nextRoute == AppRoute::Admin) {
             qDebug() << "Admin login, navigating to admin panel.";
-            loadAdminPage();
-            if (QWidget *ap = ui->stackedWidget->findChild<QWidget *>(QStringLiteral("page_admin")))
-                ui->stackedWidget->setCurrentIndex(ui->stackedWidget->indexOf(ap));
-        } else if (DatabaseManager::instance().hasProfile(m_currentUserId)) {
+            navigateTo(AppRoute::Admin, false);
+        } else if (result.nextRoute == AppRoute::Home) {
             qDebug() << "Profile exists, navigating to main page (page_4).";
-            if (!DatabaseManager::instance().hasPlan(m_currentUserId)) {
+            const bool needsInitialPlan = !DatabaseManager::instance().hasPlan(m_currentUserId);
+            if (needsInitialPlan) {
                 qDebug() << "No plan found for user" << m_currentUserId
-                         << "- triggering AI plan generation...";
-                requestAIPlan();
+                         << "- scheduling AI plan generation after Home route.";
             }
             loadMainPage();
-            updatePlanUI();
+            // Force synchronous layout of dynamically-created widgets
+            // before page_4 becomes visible.  loadMainPage() adds widgets
+            // that dirty the layout; without this the resize cascade may
+            // not reach QTextEdits inside QScrollAreas before updatePlanUI().
+            if (ui->page_4) {
+                if (ui->page_4->layout())
+                    ui->page_4->layout()->activate();
+                QCoreApplication::processEvents();
+            }
             setupSideDrawer();
-            navigateTo(3, false);
+            navigateTo(AppRoute::Home, false);
+            if (needsInitialPlan)
+                requestAIPlanWhenHomeReady();
+
         } else {
             qDebug() << "No profile found, navigating to profile page (page_3).";
-            ui->stackedWidget->setCurrentIndex(2);
+            populateProfileEditFields(LifeBalanceAI::Models::ProfileData());
+            navigateTo(AppRoute::ProfileSetup, false);
         }
-    });
+    };
+
+    if (result.fromAutoLogin) {
+        QTimer::singleShot(0, this, routeAction);
+        return;
+    }
+
+    showLoginSuccessTransition(welcomeName, routeAction);
 }
 
 void MainWindow::showLoginSuccessTransition(const QString &welcomeText, std::function<void()> routeAction)
@@ -2194,6 +2230,84 @@ void MainWindow::showLoginSuccessTransition(const QString &welcomeText, std::fun
             overlay->raise();
     });
 #endif
+}
+
+void MainWindow::syncShellRouteIndexes()
+{
+    if (!m_shellController || !ui || !ui->stackedWidget)
+        return;
+
+    m_shellController->setRouteIndex(AppRoute::Login, 0);
+    m_shellController->setRouteIndex(AppRoute::Register, 1);
+    m_shellController->setRouteIndex(AppRoute::ProfileSetup, ui->page_3 ? ui->stackedWidget->indexOf(ui->page_3) : 2);
+    m_shellController->setRouteIndex(AppRoute::Home, ui->page_4 ? ui->stackedWidget->indexOf(ui->page_4) : 3);
+    m_shellController->setRouteIndex(AppRoute::Profile, ui->page_5 ? ui->stackedWidget->indexOf(ui->page_5) : 4);
+    m_shellController->setRouteIndex(AppRoute::Payment, ui->page_6 ? ui->stackedWidget->indexOf(ui->page_6) : 5);
+
+    if (m_analysisPageIndex >= 0)
+        m_shellController->setRouteIndex(AppRoute::Analysis, m_analysisPageIndex);
+    else if (QWidget *analysis = ui->stackedWidget->findChild<QWidget *>(QStringLiteral("page_analysis")))
+        m_shellController->setRouteIndex(AppRoute::Analysis, ui->stackedWidget->indexOf(analysis));
+
+    if (m_reportPageIndex >= 0)
+        m_shellController->setRouteIndex(AppRoute::Report, m_reportPageIndex);
+    else if (QWidget *reports = ui->stackedWidget->findChild<QWidget *>(QStringLiteral("page_reports")))
+        m_shellController->setRouteIndex(AppRoute::Report, ui->stackedWidget->indexOf(reports));
+
+    if (QWidget *admin = ui->stackedWidget->findChild<QWidget *>(QStringLiteral("page_admin")))
+        m_shellController->setRouteIndex(AppRoute::Admin, ui->stackedWidget->indexOf(admin));
+}
+
+AppRoute MainWindow::routeForPageIndex(int pageIndex) const
+{
+    if (m_shellController)
+        return m_shellController->routeForPageIndex(pageIndex);
+    return AppRoute::Unknown;
+}
+
+int MainWindow::pageIndexForRoute(AppRoute route)
+{
+    syncShellRouteIndexes();
+    if (m_shellController)
+        return m_shellController->routeIndex(route);
+    return -1;
+}
+
+void MainWindow::navigateTo(AppRoute route, bool animate)
+{
+    if (!ui || !ui->stackedWidget)
+        return;
+
+    int targetIndex = -1;
+    switch (route) {
+    case AppRoute::Analysis:
+        targetIndex = setupAnalysisPage();
+        syncShellRouteIndexes();
+        break;
+    case AppRoute::Report:
+        targetIndex = setupReportPage();
+        syncShellRouteIndexes();
+        break;
+    case AppRoute::Profile:
+        loadPage5();
+        targetIndex = pageIndexForRoute(AppRoute::Profile);
+        break;
+    case AppRoute::Admin:
+        loadAdminPage();
+        syncShellRouteIndexes();
+        targetIndex = pageIndexForRoute(AppRoute::Admin);
+        break;
+    default:
+        targetIndex = pageIndexForRoute(route);
+        break;
+    }
+
+    if (targetIndex < 0) {
+        qWarning() << "navigateTo route failed:" << appRouteName(route);
+        return;
+    }
+
+    navigateTo(targetIndex, animate);
 }
 
 
@@ -2252,9 +2366,8 @@ void MainWindow::updateBottomNavVisibility()
 
 void MainWindow::positionBottomNav()
 {
-#ifdef Q_OS_ANDROID
-    return;
-#endif
+    if (m_shellController)
+        m_shellController->positionBottomNav();
 }
 
 void MainWindow::updateBottomNavVisibility(int pageIndex)
@@ -2262,142 +2375,27 @@ void MainWindow::updateBottomNavVisibility(int pageIndex)
 
 
 {
+    if (!m_bottomNav)
+        return;
 
-
-
-    if (!m_bottomNav) return;
-
-
-
-    int idx = pageIndex;
-
-#ifdef Q_OS_ANDROID
-    m_bottomNav->hide();
-    auto syncPageNav = [](BottomNavBar *nav, int activeIndex) {
-        if (!nav)
-            return;
-        nav->blockSignals(true);
-        nav->setCurrentIndex(activeIndex);
-        nav->blockSignals(false);
-    };
-
-    const int activeTab =
-        (idx == 3) ? 0 :
-        (idx == m_analysisPageIndex) ? 1 :
-        (idx == m_reportPageIndex) ? 2 :
-        (idx == 4) ? 3 : -1;
-
-    if (activeTab >= 0) {
-        for (BottomNavBar *nav : ui->stackedWidget->findChildren<BottomNavBar *>())
-            syncPageNav(nav, activeTab);
-    }
-    if (auto *homeNav = ui->page_4->findChild<BottomNavBar *>(QStringLiteral("androidBottomNavHome")))
-        homeNav->setVisible(idx == 3);
-    if (auto *profileNav = ui->page_5->findChild<BottomNavBar *>(QStringLiteral("androidBottomNavProfile")))
-        profileNav->setVisible(idx == 4);
-    return;
-#endif
-
-
-
-    bool visible = (idx == 3 || idx == 4 || idx == m_analysisPageIndex || idx == m_reportPageIndex);
-
-
-
-    qDebug() << "updateBottomNavVisibility: index=" << idx << "visible=" << visible;
-
-
-    m_bottomNav->setVisible(visible);
-    if (visible)
-        m_bottomNav->raise();
-
-
-
-    QGridLayout *grid = qobject_cast<QGridLayout *>(centralWidget()->layout());
-
-
-
-    if (grid) {
-
-
-
-        grid->setRowMinimumHeight(1, visible ? 60 : 0);
-        grid->setRowStretch(1, 0);
-
-
-
+    syncShellRouteIndexes();
+    if (m_shellController) {
+        m_shellController->updateBottomNavForPage(pageIndex);
+        qDebug() << "updateBottomNavVisibility: index=" << pageIndex
+                 << "route=" << appRouteName(routeForPageIndex(pageIndex))
+                 << "visible=" << m_bottomNav->isVisible();
     }
 
-
-
-    // Sync nav active tab
-
-
-
-    m_bottomNav->blockSignals(true);
-
-
-
-    if (idx == 3)      m_bottomNav->setCurrentIndex(0);
-
-
-
-    else if (idx == m_analysisPageIndex) m_bottomNav->setCurrentIndex(1);
-
-
-
-    else if (idx == m_reportPageIndex) m_bottomNav->setCurrentIndex(2);
-
-
-
-    else if (idx == 4) m_bottomNav->setCurrentIndex(3);
-
-
-
-    m_bottomNav->blockSignals(false);
-
-
-
-}
-
-BottomNavBar *MainWindow::createAndroidPageNav(int activeIndex, QWidget *parent)
-{
-    auto *nav = new BottomNavBar(parent);
-    nav->setObjectName(QStringLiteral("androidPageBottomNav"));
-    nav->setFixedHeight(64);
-    nav->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-    nav->setCurrentIndex(activeIndex);
-    connect(nav, &BottomNavBar::currentChanged, this, [this](int tab) {
-        handleBottomNavTab(tab);
-    });
-    return nav;
 }
 
 void MainWindow::handleBottomNavTab(int tab)
 {
-    switch (tab) {
-    case 0:
-        navigateTo(3, true);
-        break;
-    case 1: {
-        const int idx = setupAnalysisPage();
-        if (idx >= 0)
-            navigateTo(idx, true);
-        break;
-    }
-    case 2: {
-        const int idx = setupReportPage();
-        if (idx >= 0)
-            navigateTo(idx, true);
-        break;
-    }
-    case 3:
-        loadPage5();
-        navigateTo(4, true);
-        break;
-    default:
-        break;
-    }
+    if (!m_shellController)
+        return;
+
+    const AppRoute route = m_shellController->routeForBottomTab(tab);
+    if (route != AppRoute::Unknown)
+        m_shellController->navigateTo(route, true);
 }
 
 
@@ -2470,6 +2468,23 @@ void MainWindow::navigateTo(int toIndex, bool animate)
 
     }
 
+    // Deferred refresh: populate plan content AFTER the resize cascade
+    // has fully settled.  With animated navigation setCurrentIndex fires
+    // ~180 ms after animatePageSwitch starts; calling updatePlanUI
+    // before that (via singleShot(0)) means the textWidth we set gets
+    // overwritten by the resize event that setCurrentIndex triggers.
+#ifdef Q_OS_ANDROID
+    int deferMs = animate ? 200 : 50;
+#else
+    int deferMs = animate ? 280 : 50;
+#endif
+    QTimer::singleShot(deferMs, this, [this, toIndex]() {
+        if (!ui || !ui->tabWidgetDays) return;
+        const int homeIndex = ui->page_4 ? ui->stackedWidget->indexOf(ui->page_4) : 3;
+        if (toIndex == homeIndex) {
+            updatePlanUI();
+        }
+    });
 }
 
 
@@ -2493,6 +2508,7 @@ void MainWindow::resizeEvent(QResizeEvent *event)
             centralWidget()->layout()->invalidate();
         if (ui && ui->stackedWidget)
             ui->stackedWidget->updateGeometry();
+        positionBottomNav();
     });
 #endif
 }
@@ -2515,7 +2531,7 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
                     auto *mouse = static_cast<QMouseEvent *>(event);
                     const QPoint pressPos = button->property("_lbPressPos").toPoint();
                     if (!pressPos.isNull() &&
-                        (mouse->position().toPoint() - pressPos).manhattanLength() > 14) {
+                        (mouse->position().toPoint() - pressPos).manhattanLength() > 24) {
                         button->setProperty("_lbCancelClick", true);
                     }
                 } else if (event->type() == QEvent::MouseButtonRelease) {
@@ -2539,7 +2555,7 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
                     if (!touch->points().isEmpty()) {
                         const QPoint pressPos = button->property("_lbPressPos").toPoint();
                         if (!pressPos.isNull() &&
-                            (touch->points().first().position().toPoint() - pressPos).manhattanLength() > 14) {
+                            (touch->points().first().position().toPoint() - pressPos).manhattanLength() > 24) {
                             button->setProperty("_lbCancelClick", true);
                         }
                     }
@@ -2568,6 +2584,17 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
     if (event && event->type() == QEvent::Wheel && ui && ui->tabWidgetDays) {
         QWidget *watchedWidget = qobject_cast<QWidget *>(watched);
         if (watchedWidget) {
+            // Let QTextEdit handle its own wheel events when it has scrollable content
+            QTextEdit *textEdit = qobject_cast<QTextEdit *>(watchedWidget);
+            if (!textEdit) {
+                if (auto *vp = qobject_cast<QWidget *>(watchedWidget))
+                    textEdit = qobject_cast<QTextEdit *>(vp->parentWidget());
+            }
+            if (textEdit && textEdit->verticalScrollBar()
+                && textEdit->verticalScrollBar()->maximum() > 0) {
+                return QMainWindow::eventFilter(watched, event);
+            }
+
             auto applyWheelToScrollArea = [event](QScrollArea *scrollArea) -> bool {
                 if (!scrollArea)
                     return false;
@@ -2605,7 +2632,8 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
                 return applyWheelToScrollArea(scrollArea);
             }
 
-            if (ui->stackedWidget && ui->stackedWidget->currentIndex() == 3 &&
+            const int homeIndex = ui->page_4 ? ui->stackedWidget->indexOf(ui->page_4) : 3;
+            if (ui->stackedWidget && ui->stackedWidget->currentIndex() == homeIndex &&
                 ui->page_4 && (watchedWidget == ui->page_4 || ui->page_4->isAncestorOf(watchedWidget))) {
                 QWidget *currentTab = ui->tabWidgetDays->currentWidget();
                 if (auto *scrollArea = currentTab ? currentTab->findChild<QScrollArea *>(QStringLiteral("planScrollArea")) : nullptr)
@@ -2631,6 +2659,8 @@ void MainWindow::applyWarmVisualPolish()
         ui->stackedWidget->setMinimumSize(0, 0);
         ui->stackedWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     }
+    statusBar()->hide();
+    menuBar()->hide();
 #else
     setMinimumSize(470, 535);
 #endif
@@ -2669,6 +2699,7 @@ void MainWindow::applyWarmVisualPolish()
             listView->setFrameShape(QFrame::NoFrame);
             listView->setLineWidth(0);
             if (QWidget *popupWindow = listView->window()) {
+                popupWindow->setWindowFlag(Qt::FramelessWindowHint, true);
                 popupWindow->setAttribute(Qt::WA_StyledBackground, true);
                 popupWindow->setStyleSheet(QStringLiteral(
                     "background:#FFFFFF;"
@@ -2685,7 +2716,7 @@ void MainWindow::applyWarmVisualPolish()
                 "selection-background-color:#A8E6C3;"
                 "selection-color:#1A1A1A;"
                 "}"
-                "QListView::item { min-height:34px; padding:6px 10px; }"
+                "QListView::item { min-height:32px; padding:5px 10px; }"
                 "QListView::item:selected { background:#A8E6C3; color:#1A1A1A; }"));
         }
     }
@@ -2717,18 +2748,17 @@ void MainWindow::applyWarmVisualPolish()
         ui->label_5->setText(QStringLiteral("LifeBalance AI"));
         const QStringList families = QFontDatabase::families();
         const QStringList displayCandidates = {
-            QStringLiteral("Smiley Sans Oblique"),
-            QStringLiteral("Smiley Sans"),
-            QString::fromUtf8("\xE5\xBE\x97\xE6\x84\x8F\xE9\xBB\x91"),
             QStringLiteral("MiSans"),
-            QStringLiteral("MiSans Medium"),
+            QStringLiteral("MiSans Regular"),
+            QStringLiteral("PingFang SC"),
             QStringLiteral("Noto Sans SC")
         };
         for (const QString &candidate : displayCandidates) {
             if (families.contains(candidate, Qt::CaseInsensitive)) {
                 QFont logoFont = ui->label_5->font();
                 logoFont.setFamily(candidate);
-                logoFont.setWeight(candidate == QStringLiteral("MiSans") ? QFont::Bold : QFont::Normal);
+                logoFont.setWeight(QFont::Normal);
+                logoFont.setPointSize(34);
                 ui->label_5->setFont(logoFont);
                 break;
             }
@@ -2741,12 +2771,12 @@ void MainWindow::applyWarmVisualPolish()
 
     if (auto *loginLayout = qobject_cast<QVBoxLayout *>(ui->page_2->layout())) {
 #ifdef Q_OS_ANDROID
-        loginLayout->setContentsMargins(18, 22, 18, 18);
-        loginLayout->setSpacing(8);
-        tuneSpacer(loginLayout, 0, 26);
-        tuneSpacer(loginLayout, 4, 12);
-        tuneSpacer(loginLayout, 6, 12);
-        tuneSpacer(loginLayout, 8, 12, QSizePolicy::Expanding);
+        loginLayout->setContentsMargins(18, 2, 18, 18);
+        loginLayout->setSpacing(4);
+        tuneSpacer(loginLayout, 0, 2);
+        tuneSpacer(loginLayout, 4, 2);
+        tuneSpacer(loginLayout, 6, 2);
+        tuneSpacer(loginLayout, 8, 4, QSizePolicy::Expanding);
 #else
         loginLayout->setContentsMargins(32, 28, 32, 22);
         loginLayout->setSpacing(8);
@@ -2934,13 +2964,13 @@ void MainWindow::applyWarmVisualPolish()
         while (QLayoutItem *item = grid->takeAt(0))
             delete item;
 
-        grid->setContentsMargins(10, 14, 10, 10);
+        grid->setContentsMargins(8, 12, 8, 8);
         grid->setHorizontalSpacing(8);
-        grid->setVerticalSpacing(8);
+        grid->setVerticalSpacing(6);
         for (int i = 0; i < entries.size(); ++i) {
             QCheckBox *check = entries.at(i).checkBox;
             check->setMinimumWidth(0);
-            check->setMinimumHeight(28);
+            check->setMinimumHeight(24);
             check->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
             grid->addWidget(check, i / columns, i % columns);
         }
@@ -2971,8 +3001,9 @@ void MainWindow::applyWarmVisualPolish()
     if (ui->page_4) {
         if (auto *layout = qobject_cast<QVBoxLayout *>(ui->page_4->layout())) {
 #ifdef Q_OS_ANDROID
-            layout->setContentsMargins(8, 0, 8, 6);
-            layout->setSpacing(4);
+            const int bottomMargin = 8;
+            layout->setContentsMargins(8, 0, 8, bottomMargin);
+            layout->setSpacing(3);
             layout->setAlignment(Qt::AlignTop);
 #else
             layout->setContentsMargins(20, 16, 20, 12);
@@ -3016,7 +3047,7 @@ void MainWindow::applyWarmVisualPolish()
                     m_btnGoalToggle->setObjectName(QStringLiteral("btnGoalToggle"));
                     m_btnGoalToggle->setCursor(Qt::PointingHandCursor);
 #ifdef Q_OS_ANDROID
-                    m_btnGoalToggle->setMinimumSize(58, 26);
+                    m_btnGoalToggle->setMinimumSize(64, 26);
                     m_btnGoalToggle->setMaximumHeight(28);
                     headerRow->setMinimumHeight(28);
 #else
@@ -3030,6 +3061,35 @@ void MainWindow::applyWarmVisualPolish()
                     connect(m_btnGoalToggle, &QPushButton::clicked, this, [this]() {
                         m_goalExpanded = !m_goalExpanded;
                         updateGoalCollapseState();
+                        if (m_goalExpanded && m_goalContentEdit && !m_goalText.isEmpty()) {
+                            if (ui->page_4 && ui->page_4->layout()) {
+                                ui->page_4->layout()->invalidate();
+                                ui->page_4->layout()->activate();
+                            }
+                            QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+
+                            // setWidgetResizable(true) may not resize content on the
+                            // first hidden→visible transition on Android.
+                            if (auto *gs = ui->frameGoal->findChild<QScrollArea *>(QStringLiteral("goalContentScroll"))) {
+                                if (gs->viewport() && gs->widget()) {
+                                    const int vpW = gs->viewport()->width();
+                                    if (vpW > 0 && gs->widget()->width() != vpW) {
+                                        gs->widget()->setMinimumWidth(0);
+                                        gs->widget()->setMaximumWidth(vpW);
+                                        gs->widget()->resize(vpW, gs->widget()->height());
+                                        if (gs->widget()->layout())
+                                            gs->widget()->layout()->activate();
+                                    }
+                                }
+                            }
+
+                            QTimer::singleShot(0, this, [this]() {
+                                if (!m_goalExpanded || !m_goalContentEdit || m_goalText.isEmpty())
+                                    return;
+                                m_goalContentEdit->setPlainText(m_goalText);
+                                forceTextWidth(m_goalContentEdit);
+                            });
+                        }
                     });
                 } else if (!m_btnGoalToggle) {
                     m_btnGoalToggle = ui->frameGoal->findChild<QPushButton *>(QStringLiteral("btnGoalToggle"));
@@ -3043,13 +3103,37 @@ void MainWindow::applyWarmVisualPolish()
                         delete contentItem;
                     }
 
+                    // Hide the original QLabel — QLabel caches word-wrap layout at the
+                    // width when setText() runs and never recalculates.  Replace it with
+                    // a read-only QTextEdit whose resizeEvent correctly updates
+                    // QTextDocument::textWidth, so text reflows after any resize.
+                    ui->lblGoalContent->hide();
+
                     auto *contentHost = new QWidget(ui->frameGoal);
                     contentHost->setObjectName(QStringLiteral("goalContentHost"));
                     auto *contentLayout = new QVBoxLayout(contentHost);
                     contentLayout->setContentsMargins(0, 0, 0, 0);
                     contentLayout->setSpacing(0);
-                    ui->lblGoalContent->setParent(contentHost);
-                    contentLayout->addWidget(ui->lblGoalContent);
+
+                    m_goalContentEdit = new QTextEdit(contentHost);
+                    m_goalContentEdit->setObjectName(QStringLiteral("goalContentEdit"));
+                    m_goalContentEdit->setReadOnly(true);
+                    m_goalContentEdit->setTextInteractionFlags(Qt::NoTextInteraction);
+                    m_goalContentEdit->setFrameShape(QFrame::NoFrame);
+                    m_goalContentEdit->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+                    m_goalContentEdit->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+                    m_goalContentEdit->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+                    m_goalContentEdit->setMinimumHeight(0);
+                    m_goalContentEdit->setMaximumHeight(QWIDGETSIZE_MAX);
+                    m_goalContentEdit->setFocusPolicy(Qt::NoFocus);
+                    // Inherit the label's font and styling
+                    m_goalContentEdit->setFont(ui->lblGoalContent->font());
+                    m_goalContentEdit->document()->setDefaultFont(ui->lblGoalContent->font());
+                    m_goalContentEdit->document()->setDocumentMargin(4);
+                    QPalette pal = m_goalContentEdit->palette();
+                    pal.setColor(QPalette::Base, Qt::transparent);
+                    m_goalContentEdit->setPalette(pal);
+                    contentLayout->addWidget(m_goalContentEdit);
 
                     auto *goalScroll = new QScrollArea(ui->frameGoal);
                     goalScroll->setObjectName(QStringLiteral("goalContentScroll"));
@@ -3057,7 +3141,16 @@ void MainWindow::applyWarmVisualPolish()
                     goalScroll->setFrameShape(QFrame::NoFrame);
                     goalScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 #ifdef Q_OS_ANDROID
-                    goalScroll->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+                    goalScroll->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+                    if (goalScroll->viewport()) {
+                        goalScroll->viewport()->setAttribute(Qt::WA_AcceptTouchEvents, true);
+                        QScroller::grabGesture(goalScroll->viewport(), QScroller::TouchGesture);
+                        QScroller *gs = QScroller::scroller(goalScroll->viewport());
+                        QScrollerProperties gsp = gs->scrollerProperties();
+                        gsp.setScrollMetric(QScrollerProperties::VerticalOvershootPolicy,
+                                           QScrollerProperties::OvershootAlwaysOff);
+                        gs->setScrollerProperties(gsp);
+                    }
 #else
                     goalScroll->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
 #endif
@@ -3066,13 +3159,6 @@ void MainWindow::applyWarmVisualPolish()
                 }
             }
         }
-        if (ui->lblGoalContent) {
-            ui->lblGoalContent->setWordWrap(true);
-            ui->lblGoalContent->setMinimumHeight(0);
-            ui->lblGoalContent->setMaximumHeight(QWIDGETSIZE_MAX);
-            ui->lblGoalContent->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
-        }
-
 #ifdef Q_OS_ANDROID
         const QList<QPair<QGroupBox *, QString>> planTitles = {
             {ui->groupTodayMorning, QStringLiteral("早餐")},
@@ -3129,8 +3215,8 @@ void MainWindow::applyWarmVisualPolish()
 
             auto *contentLayout = new QVBoxLayout(content);
 #ifdef Q_OS_ANDROID
-            contentLayout->setContentsMargins(6, 8, 6, 18);
-            contentLayout->setSpacing(14);
+            contentLayout->setContentsMargins(5, 4, 5, 10);
+            contentLayout->setSpacing(12);
 #else
             contentLayout->setContentsMargins(14, 28, 14, 42);
             contentLayout->setSpacing(58);
@@ -3150,7 +3236,8 @@ void MainWindow::applyWarmVisualPolish()
             disclaimer->setObjectName(QStringLiteral("legalDisclaimer"));
             disclaimer->setAlignment(Qt::AlignCenter);
 #ifdef Q_OS_ANDROID
-            disclaimer->setMinimumHeight(28);
+            contentLayout->addSpacing(42);
+            disclaimer->setMinimumHeight(24);
             disclaimer->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
 #endif
             contentLayout->addWidget(disclaimer);
@@ -3181,10 +3268,10 @@ void MainWindow::applyWarmVisualPolish()
         ensurePlanTabScroll(ui->tabDayAfter);
 
         if (ui->tabWidgetDays) {
-            ui->tabWidgetDays->setMinimumHeight(520);
-            ui->tabWidgetDays->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+            ui->tabWidgetDays->setMinimumHeight(560);
+            ui->tabWidgetDays->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 #ifdef Q_OS_ANDROID
-            ui->tabWidgetDays->setMaximumHeight(520);
+            ui->tabWidgetDays->setMaximumHeight(QWIDGETSIZE_MAX);
 #endif
         }
 
@@ -3194,8 +3281,8 @@ void MainWindow::applyWarmVisualPolish()
         for (QGroupBox *group : ui->tabWidgetDays->findChildren<QGroupBox *>()) {
             group->setProperty("class", QStringLiteral("planCard"));
 #ifdef Q_OS_ANDROID
-            group->setMinimumHeight(114);
-            group->setMaximumHeight(120);
+            group->setMinimumHeight(124);
+            group->setMaximumHeight(128);
 #else
             group->setMinimumHeight(218);
             group->setMaximumHeight(242);
@@ -3203,10 +3290,10 @@ void MainWindow::applyWarmVisualPolish()
             group->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
             if (auto *row = qobject_cast<QHBoxLayout *>(group->layout())) {
 #ifdef Q_OS_ANDROID
-                row->setContentsMargins(8, 2, 8, 6);
-                row->setSpacing(10);
+                row->setContentsMargins(7, 6, 7, 5);
+                row->setSpacing(8);
 #else
-                row->setContentsMargins(16, 22, 16, 22);
+                row->setContentsMargins(16, 22, 16, 16);
                 row->setSpacing(24);
 #endif
 
@@ -3240,9 +3327,9 @@ void MainWindow::applyWarmVisualPolish()
 
                 if (actionColumn) {
 #ifdef Q_OS_ANDROID
-                    actionColumn->setMinimumWidth(78);
-                    actionColumn->setMaximumWidth(86);
-                    actionColumn->setMinimumHeight(70);
+                    actionColumn->setMinimumWidth(72);
+                    actionColumn->setMaximumWidth(78);
+                    actionColumn->setMinimumHeight(78);
 #else
                     actionColumn->setMinimumWidth(112);
                     actionColumn->setMaximumWidth(128);
@@ -3251,7 +3338,7 @@ void MainWindow::applyWarmVisualPolish()
                     actionColumn->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Preferred);
                     if (auto *actionLayout = qobject_cast<QVBoxLayout *>(actionColumn->layout())) {
 #ifdef Q_OS_ANDROID
-                        actionLayout->setSpacing(8);
+                        actionLayout->setSpacing(7);
 #else
                         actionLayout->setSpacing(24);
 #endif
@@ -3270,19 +3357,18 @@ void MainWindow::applyWarmVisualPolish()
         for (QTextEdit *textEdit : ui->tabWidgetDays->findChildren<QTextEdit *>()) {
             textEdit->setProperty("class", QStringLiteral("planText"));
 #ifdef Q_OS_ANDROID
-            textEdit->setMinimumHeight(58);
-            textEdit->setMaximumHeight(58);
+            textEdit->setMinimumHeight(76);
+            textEdit->setMaximumHeight(80);
 #else
             textEdit->setMinimumHeight(120);
-            textEdit->setMaximumHeight(120);
 #endif
             textEdit->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
             textEdit->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-            textEdit->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+            textEdit->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
             textEdit->setLineWrapMode(QTextEdit::WidgetWidth);
             textEdit->setReadOnly(true);
+            textEdit->setTextInteractionFlags(Qt::NoTextInteraction);
             textEdit->setFocusPolicy(Qt::NoFocus);
-            textEdit->setAttribute(Qt::WA_TransparentForMouseEvents, true);
             QFont planFont = textEdit->font();
             planFont.setWeight(QFont::Normal);
 #ifdef Q_OS_ANDROID
@@ -3291,6 +3377,14 @@ void MainWindow::applyWarmVisualPolish()
             textEdit->setFont(planFont);
             textEdit->document()->setDefaultFont(planFont);
             textEdit->document()->setDocumentMargin(4);
+#ifdef Q_OS_ANDROID
+            if (textEdit->verticalScrollBar()) {
+                textEdit->verticalScrollBar()->setFixedWidth(0);
+                textEdit->verticalScrollBar()->hide();
+            }
+            if (textEdit->viewport())
+                QScroller::grabGesture(textEdit->viewport(), QScroller::TouchGesture);
+#endif
             if (textEdit->viewport())
                 textEdit->viewport()->installEventFilter(this);
             textEdit->style()->unpolish(textEdit);
@@ -3301,8 +3395,8 @@ void MainWindow::applyWarmVisualPolish()
             if (button->objectName().startsWith(QStringLiteral("btnFeedback")) ||
                 button->objectName() == QStringLiteral("btnAdjust")) {
 #ifdef Q_OS_ANDROID
-                button->setMinimumSize(76, 31);
-                button->setMaximumSize(84, 33);
+                button->setMinimumSize(70, 34);
+                button->setMaximumSize(80, 36);
 #else
                 button->setMinimumSize(112, 48);
                 button->setMaximumSize(128, 52);
@@ -3317,7 +3411,9 @@ void MainWindow::applyWarmVisualPolish()
                     contentLayout->activate();
                     const int groupCount = content->findChildren<QGroupBox *>().size();
 #ifdef Q_OS_ANDROID
-                    const int fixedHeight = 8 + 18 + qMax(1, groupCount) * 120 + qMax(0, groupCount - 1) * 14;
+                    const int fixedHeight = 4 + 10 + qMax(1, groupCount) * 128
+                                          + qMax(0, groupCount - 1) * 14
+                                          + 34 + 22;
 #else
                     const int fixedHeight = 28 + 42 + qMax(1, groupCount) * 242 + qMax(0, groupCount - 1) * 58;
 #endif
@@ -3339,10 +3435,7 @@ void MainWindow::applyWarmVisualPolish()
             if (ui->frameGoal)
                 layout->setStretchFactor(ui->frameGoal, 0);
             if (ui->tabWidgetDays)
-                layout->setStretchFactor(ui->tabWidgetDays, 0);
-#ifdef Q_OS_ANDROID
-            layout->setAlignment(Qt::AlignTop);
-#endif
+                layout->setStretchFactor(ui->tabWidgetDays, 1);
         }
         ui->page_4->installEventFilter(this);
         for (QWidget *child : ui->page_4->findChildren<QWidget *>())
@@ -3359,36 +3452,172 @@ void MainWindow::updateGoalCollapseState()
     if (!ui || !ui->frameGoal)
         return;
 
-    QScrollArea *goalScroll = ui->frameGoal->findChild<QScrollArea *>(QStringLiteral("goalContentScroll"));
-    if (goalScroll) {
-        goalScroll->setVisible(m_goalExpanded);
+QScrollArea *goalScroll = ui->frameGoal->findChild<QScrollArea *>(QStringLiteral("goalContentScroll"));
+
 #ifdef Q_OS_ANDROID
-        goalScroll->setMinimumHeight(m_goalExpanded ? 72 : 0);
-        goalScroll->setMaximumHeight(m_goalExpanded ? 108 : 0);
+    const int expandedScrollH = 118;
+    const int collapsedFrameH = 56;
+    const int expandedFrameH = 174;
 #else
-        goalScroll->setMinimumHeight(m_goalExpanded ? 104 : 0);
-        goalScroll->setMaximumHeight(m_goalExpanded ? 184 : 0);
+    const int expandedScrollH = 184;
+    const int collapsedFrameH = 120;
+    const int expandedFrameH = 286;
 #endif
-    } else if (ui->lblGoalContent) {
-        ui->lblGoalContent->setVisible(m_goalExpanded);
-    }
+    const int targetScrollH = m_goalExpanded ? expandedScrollH : 0;
+    const int targetFrameH = m_goalExpanded ? expandedFrameH : collapsedFrameH;
+
+#ifdef Q_OS_ANDROID
+    auto homeTabTargetHeight = [this, targetFrameH]() {
+        int viewportH = height();
+        if (QScreen *screen = QGuiApplication::primaryScreen())
+            viewportH = viewportH > 0 ? qMin(viewportH, screen->availableGeometry().height())
+                                      : screen->availableGeometry().height();
+        if (centralWidget() && centralWidget()->height() > 0)
+            viewportH = qMin(viewportH, centralWidget()->height());
+        const int navH = (m_bottomNav && m_bottomNav->isVisible()) ? 64 : 0;
+        const int topBarH = 42;
+        const int spacingBudget = 12;
+        const int stackH = qMax(0, viewportH - navH);
+        const int desired = stackH - topBarH - targetFrameH - spacingBudget;
+        return m_goalExpanded ? qBound(340, desired, 430)
+                              : qBound(500, desired, 560);
+    };
+    const int targetTabH = ui->tabWidgetDays ? homeTabTargetHeight() : 0;
+#endif
 
     if (m_btnGoalToggle)
         m_btnGoalToggle->setText(m_goalExpanded ? tr("收起") : tr("展开"));
 
+    if (!goalScroll) {
+        ui->frameGoal->setMinimumHeight(targetFrameH);
+        ui->frameGoal->setMaximumHeight(targetFrameH);
+        ui->frameGoal->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
 #ifdef Q_OS_ANDROID
-    ui->frameGoal->setMinimumHeight(m_goalExpanded ? 134 : 54);
-    ui->frameGoal->setMaximumHeight(m_goalExpanded ? 174 : 62);
-#else
-    ui->frameGoal->setMinimumHeight(m_goalExpanded ? 210 : 104);
-    ui->frameGoal->setMaximumHeight(m_goalExpanded ? 286 : 120);
+        if (ui->tabWidgetDays && targetTabH > 0) {
+            ui->tabWidgetDays->setMinimumHeight(targetTabH);
+            ui->tabWidgetDays->setMaximumHeight(QWIDGETSIZE_MAX);
+            ui->tabWidgetDays->updateGeometry();
+        }
 #endif
-    ui->frameGoal->updateGeometry();
+        return;
+    }
 
-    if (ui->tabWidgetDays)
+    const int currentScrollH = goalScroll->isVisible() ? goalScroll->height() : 0;
+    const int currentFrameH = ui->frameGoal->height() > 0
+        ? ui->frameGoal->height()
+        : (m_goalExpanded ? collapsedFrameH : expandedFrameH);
+    const int startScrollH = qBound(0, currentScrollH, qMax(targetScrollH, currentScrollH));
+    const int startFrameH = qBound(collapsedFrameH, currentFrameH, expandedFrameH);
+#ifdef Q_OS_ANDROID
+    const int currentTabH = ui->tabWidgetDays && ui->tabWidgetDays->height() > 0
+        ? ui->tabWidgetDays->height()
+        : (ui->tabWidgetDays ? ui->tabWidgetDays->minimumHeight() : targetTabH);
+    const int startTabH = ui->tabWidgetDays
+        ? qBound(320, currentTabH, 620)
+        : targetTabH;
+#endif
+
+    goalScroll->setVisible(true);
+    goalScroll->setFixedHeight(startScrollH);
+    goalScroll->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    ui->frameGoal->setFixedHeight(startFrameH);
+    ui->frameGoal->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+#ifdef Q_OS_ANDROID
+    if (ui->tabWidgetDays && targetTabH > 0) {
+        ui->tabWidgetDays->setMinimumHeight(startTabH);
+        ui->tabWidgetDays->setMaximumHeight(startTabH);
         ui->tabWidgetDays->updateGeometry();
-    if (ui->page_4 && ui->page_4->layout())
-        ui->page_4->layout()->invalidate();
+    }
+#endif
+
+    if (m_btnGoalToggle)
+        m_btnGoalToggle->setEnabled(false);
+
+#ifdef Q_OS_ANDROID
+    auto keepBottomNavOnTop = [this]() {
+        if (!ui || !ui->stackedWidget || !m_bottomNav)
+            return;
+        const int idx = ui->stackedWidget->currentIndex();
+        const int homeIndex = ui->page_4 ? ui->stackedWidget->indexOf(ui->page_4) : 3;
+        const int profileIndex = ui->page_5 ? ui->stackedWidget->indexOf(ui->page_5) : 4;
+        const bool navPage = idx == homeIndex || idx == profileIndex || idx == m_analysisPageIndex || idx == m_reportPageIndex;
+        if (!navPage)
+            return;
+        if (!m_bottomNav->isVisible())
+            m_bottomNav->show();
+        positionBottomNav();
+        m_bottomNav->raise();
+    };
+    keepBottomNavOnTop();
+#endif
+
+    auto *anim = new QVariantAnimation(this);
+    anim->setDuration(220);
+    anim->setStartValue(0.0);
+    anim->setEndValue(1.0);
+    anim->setEasingCurve(QEasingCurve::OutCubic);
+
+    QPointer<QScrollArea> scrollPtr(goalScroll);
+    QPointer<QFrame> framePtr(ui->frameGoal);
+#ifdef Q_OS_ANDROID
+    QPointer<QTabWidget> tabsPtr(ui->tabWidgetDays);
+#endif
+
+    connect(anim, &QVariantAnimation::valueChanged, this, [=](const QVariant &val) {
+        const qreal t = val.toReal();
+        if (scrollPtr) {
+            const int h = qRound(startScrollH + (targetScrollH - startScrollH) * t);
+            scrollPtr->setFixedHeight(h);
+        }
+        if (framePtr) {
+            const int h = qRound(startFrameH + (targetFrameH - startFrameH) * t);
+            framePtr->setFixedHeight(h);
+            framePtr->updateGeometry();
+        }
+#ifdef Q_OS_ANDROID
+        if (tabsPtr && targetTabH > 0) {
+            const int h = qRound(startTabH + (targetTabH - startTabH) * t);
+            tabsPtr->setMinimumHeight(h);
+            tabsPtr->setMaximumHeight(h);
+            tabsPtr->updateGeometry();
+        }
+#endif
+#ifdef Q_OS_ANDROID
+        keepBottomNavOnTop();
+#endif
+    });
+
+    connect(anim, &QVariantAnimation::finished, this, [=]() {
+        if (scrollPtr) {
+            scrollPtr->setMinimumHeight(targetScrollH);
+            scrollPtr->setMaximumHeight(targetScrollH);
+            scrollPtr->setVisible(m_goalExpanded);
+            scrollPtr->setSizePolicy(m_goalExpanded ? QSizePolicy::Expanding : QSizePolicy::Ignored,
+                                     m_goalExpanded ? QSizePolicy::Preferred : QSizePolicy::Ignored);
+        }
+        if (framePtr) {
+            framePtr->setMinimumHeight(targetFrameH);
+            framePtr->setMaximumHeight(targetFrameH);
+            framePtr->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+            framePtr->updateGeometry();
+        }
+#ifdef Q_OS_ANDROID
+        if (tabsPtr && targetTabH > 0) {
+            tabsPtr->setMinimumHeight(targetTabH);
+            tabsPtr->setMaximumHeight(QWIDGETSIZE_MAX);
+            tabsPtr->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+            tabsPtr->updateGeometry();
+        }
+#endif
+        if (m_btnGoalToggle)
+            m_btnGoalToggle->setEnabled(true);
+#ifdef Q_OS_ANDROID
+        updateBottomNavVisibility(ui->stackedWidget ? ui->stackedWidget->currentIndex() : -1);
+        keepBottomNavOnTop();
+#endif
+    });
+
+    anim->start(QAbstractAnimation::DeleteWhenStopped);
 }
 
 
@@ -3942,11 +4171,7 @@ void MainWindow::setupPage4Widgets()
 
 
 
-                loadPage5();
-
-
-
-                navigateTo(4, true);
+                navigateTo(AppRoute::Profile, true);
 
 
 
@@ -4134,7 +4359,12 @@ void MainWindow::setupSideDrawer()
 
 
 
-            ui->stackedWidget->setCurrentIndex(2);
+            LifeBalanceAI::Models::ProfileData existingProfile = DatabaseManager::instance().getProfile(m_currentUserId);
+            populateProfileEditFields(existingProfile);
+
+
+
+            navigateTo(AppRoute::ProfileSetup, false);
 
 
 
@@ -4218,7 +4448,7 @@ void MainWindow::setupSideDrawer()
 
 
 
-                ui->stackedWidget->setCurrentIndex(5);
+                navigateTo(AppRoute::Payment, false);
 
 
 
@@ -4240,19 +4470,40 @@ void MainWindow::setupSideDrawer()
 
     m_sideDrawer->addSeparator();
 
+    // Theme toggle - show opposite mode of current theme
+    {
+        const bool isDark = ThemeManager::instance().isDarkMode();
+        const QString themeLabel = isDark ? QString::fromUtf8("\u2600 \u6d45\u8272\u6a21\u5f0f")
+                                          : QString::fromUtf8("\U0001F319 \u6df1\u8272\u6a21\u5f0f");
+        m_sideDrawer->addItem(
+            QString::fromUtf8("\U0001F3A8"),
+            themeLabel,
+            [this]() {
+                ThemeManager &tm = ThemeManager::instance();
+                tm.setTheme(tm.isDarkMode() ? ThemeManager::Light : ThemeManager::Dark);
+                qApp->setStyleSheet(QString());
+                QFile qssFile(QStringLiteral(":/resources/style.qss"));
+                QString qssContent;
+                if (qssFile.open(QFile::ReadOnly | QFile::Text)) {
+                    QTextStream ts(&qssFile);
+                    qssContent = ts.readAll();
+                    qssFile.close();
+                }
+                if (tm.isDarkMode())
+                    qssContent += QStringLiteral("\n\n/* Dark theme overlay */\n") + tm.getStylesheet();
+                qApp->setStyleSheet(qssContent);
+                m_sideDrawer->deleteLater();
+                m_sideDrawer = new SideDrawer(this);
+                m_sideDrawer->setObjectName(QStringLiteral("sideDrawer"));
+                setupSideDrawer();
+            });
+    }
 
-
-
-
-
+    m_sideDrawer->addSeparator();
 
     m_sideDrawer->addItem(
 
-
-
         QString::fromUtf8("\u2139"),
-
-
 
         QString::fromUtf8("\u5173\u4e8e"),
 
@@ -4303,24 +4554,7 @@ void MainWindow::setupSideDrawer()
 
 
         [this]() {
-
-
-
-            clearAutoLoginSession();
-
-
-
-            m_currentUserId = -1;
-
-
-
-            ui->stackedWidget->setCurrentIndex(0);
-
-
-
-            m_bottomNav->setVisible(false);
-
-
+            logoutToLogin();
 
         });
 
@@ -4366,7 +4600,7 @@ void MainWindow::on_btnGoRegister_clicked()
 
 
 
-    ui->stackedWidget->setCurrentIndex(1);
+    navigateTo(AppRoute::Register, false);
 
 
 
@@ -4386,7 +4620,7 @@ void MainWindow::on_btnGoLogin_clicked()
 
 
 
-    ui->stackedWidget->setCurrentIndex(0);
+    navigateTo(AppRoute::Login, false);
 
 
 
@@ -4790,7 +5024,7 @@ void MainWindow::on_btnRegister_clicked()
 
 
 
-    ui->stackedWidget->setCurrentIndex(0);
+    navigateTo(AppRoute::Login, false);
 
 
 
@@ -4818,372 +5052,63 @@ void MainWindow::on_btnRegister_clicked()
 
 
 
-void MainWindow::on_btnLogin_clicked()
-
-
-
+void MainWindow::onForgotPassword()
 {
+    // Step 1: Enter phone number
+    bool ok = false;
+    QString phone = AnimatedInputDialog::getText(this, tr("忘记密码"), tr("请输入注册时使用的手机号："), QString(), &ok);
+    if (!ok || phone.trimmed().isEmpty()) return;
+    phone = phone.trimmed();
 
-
-
-    QString phone    = ui->editPhoneLogin->text().trimmed();
-
-
-
-    QString password = ui->editPwdLogin->text();
-
-
-
-
-
-
-
-    if (phone.isEmpty()) {
-
-
-
-        AnimatedDialog::warn(this, tr("登录失败"), tr("请输入手机号！"));
-
-
-
+    // Check phone exists
+    LifeBalanceAI::Services::UserService svc;
+    int userId = svc.getUserIdByPhone(phone);
+    if (userId < 0) {
+        AnimatedDialog::warn(this, tr("找回失败"), tr("该手机号未注册，请先注册账号。"));
         return;
-
-
-
     }
 
+    // Step 2: Show verification code (mock)
+    AnimatedDialog::info(this, tr("模拟验证"),
+        tr("【智衡健康】您的验证码为 1234，请在 5 分钟内输入。"));
 
-
-    if (password.isEmpty()) {
-
-
-
-        AnimatedDialog::warn(this, tr("登录失败"), tr("请输入密码！"));
-
-
-
+    // Step 3: Enter verification code
+    QString code = AnimatedInputDialog::getText(this, tr("忘记密码"), tr("请输入验证码："), QString(), &ok);
+    if (!ok || code.trimmed() != QStringLiteral("1234")) {
+        AnimatedDialog::warn(this, tr("验证失败"), tr("验证码错误，请重试。"));
         return;
-
-
-
     }
 
-
-
-
-
-
-
-    // Input validation (skip for admin account)
-
-
-
-    if (phone != QStringLiteral("admin")) {
-
-
-
-        LifeBalanceAI::Services::UserService svc;
-
-
-
-        QString err = svc.validatePhone(phone);
-
-
-
-        if (!err.isEmpty()) { AnimatedDialog::warn(this, tr("登录失败"), err); return; }
-
-
-
-    }
-
-
-
-
-
-
-
-    QSqlDatabase &db = DatabaseManager::instance().database();
-
-
-
-    QSqlQuery query(db);
-
-
-
-
-
-
-
-    query.prepare(QStringLiteral(
-
-
-
-        "SELECT id, role, password, salt FROM Users WHERE username = :phone"));
-
-
-
-    query.bindValue(QStringLiteral(":phone"), phone);
-
-
-
-
-
-
-
-
-
-
-
-    if (!query.exec()) {
-
-
-
-        AnimatedDialog::warn(this, tr("数据库错误"),
-
-
-
-                              tr("查询用户时出错：%1").arg(query.lastError().text()));
-
-
-
+    // Step 4: Enter new password
+    QString newPwd = AnimatedInputDialog::getText(this, tr("忘记密码"), tr("请输入新密码（至少6位）："), QString(), &ok);
+    if (!ok || newPwd.length() < 6) {
+        AnimatedDialog::warn(this, tr("重置失败"), tr("密码长度至少6位，请重试。"));
         return;
-
-
-
     }
 
+    // Step 5: Reset password
+    if (svc.resetPassword(userId, newPwd))
+        AnimatedDialog::info(this, tr("成功"), tr("密码已重置，请使用新密码登录。"));
+    else
+        AnimatedDialog::warn(this, tr("错误"), tr("重置密码失败，请稍后重试。"));
+}
 
+void MainWindow::on_btnLogin_clicked()
+{
+    const QString phone = ui->editPhoneLogin->text().trimmed();
+    const QString password = ui->editPwdLogin->text();
 
-    if (!query.next()) {
-
-
-
-        AnimatedDialog::warn(this, tr("登录失败"), tr("手机号或密码错误，请重试！"));
-
-
-
+    const auto result = LifeBalanceAI::Services::AuthFlowService::loginWithPassword(phone, password);
+    if (!result.ok) {
+        const QString title = result.message.startsWith(QStringLiteral("查询用户时出错"))
+            ? tr("数据库错误")
+            : tr("登录失败");
+        AnimatedDialog::warn(this, title, result.message);
         return;
-
-
-
     }
 
-
-
-
-
-
-
-    // Verify password with stored salt
-
-
-
-    QString storedHash = query.value(2).toString();
-
-
-
-    QString salt = query.value(3).toString();
-
-
-
-    if (DatabaseManager::instance().hashPassword(password, salt) != storedHash) {
-
-
-
-        AnimatedDialog::warn(this, tr("登录失败"), tr("手机号或密码错误，请重试。"));
-
-
-
-        return;
-
-
-
-    }
-
-
-
-
-
-
-
-    const int authenticatedUserId = query.value(0).toInt();
-    const QString authenticatedRole = query.value(1).toString();
-    handleAuthenticatedUser(authenticatedUserId, phone, authenticatedRole, false);
-    return;
-
-    // --- Login success ---
-
-
-
-    m_currentUserId = query.value(0).toInt();
-
-
-
-    QString role = query.value(1).toString();
-
-
-
-
-
-
-
-    // Differentiate welcome message: admin / returning user / first-time
-
-
-
-    if (role == QStringLiteral("admin")) {
-
-
-
-        AnimatedDialog::info(this, tr("登录成功"), tr("管理员，欢迎回来！"));
-
-
-
-    } else if (DatabaseManager::instance().hasProfile(m_currentUserId)) {
-
-
-
-        LifeBalanceAI::Models::ProfileData prof = DatabaseManager::instance().getProfile(m_currentUserId);
-
-
-
-        QString welcomeName = prof.nickname.isEmpty() ? QString::fromUtf8("用户") : prof.nickname;
-
-
-
-        AnimatedDialog::info(this, tr("登录成功"),
-
-
-
-            tr("%1，欢迎回来！").arg(welcomeName));
-
-
-
-    } else {
-
-
-
-        AnimatedDialog::info(this, tr("登录成功"), tr("欢迎使用 LifeBalance AI！"));
-
-
-
-    }
-
-
-
-
-
-
-
-    qDebug() << "=== Login Success ===";
-
-
-
-    qDebug() << "User ID:" << m_currentUserId;
-
-
-
-    qDebug() << "Phone:" << phone;
-
-
-
-    qDebug() << "Role:" << role;
-
-
-
-
-
-
-
-    // --- Route to the correct page ---
-
-
-
-    if (role == QStringLiteral("admin")) {
-
-
-
-        qDebug() << "Admin login, navigating to admin panel.";
-
-
-
-        loadAdminPage();
-
-
-
-        if (QWidget *ap = ui->stackedWidget->findChild<QWidget *>(QStringLiteral("page_admin")))
-            ui->stackedWidget->setCurrentIndex(ui->stackedWidget->indexOf(ap));
-
-
-
-    } else if (DatabaseManager::instance().hasProfile(m_currentUserId)) {
-
-
-
-        qDebug() << "Profile exists, navigating to main page (page_4).";
-
-
-
-
-
-
-
-        if (!DatabaseManager::instance().hasPlan(m_currentUserId)) {
-
-
-
-            qDebug() << "No plan found for user" << m_currentUserId
-
-
-
-                     << "- triggering AI plan generation...";
-
-
-
-            requestAIPlan();
-
-
-
-        }
-
-
-
-
-
-
-
-        loadMainPage();
-
-
-
-        updatePlanUI();
-
-
-
-        setupSideDrawer();  // refresh drawer after login
-
-
-
-        navigateTo(3, false);
-
-
-
-    } else {
-
-
-
-        qDebug() << "No profile found, navigating to profile page (page_3).";
-
-
-
-        ui->stackedWidget->setCurrentIndex(2);
-
-
-
-    }
-
-
-
+    saveAutoLoginSessionIfNeeded(result.userId, result.role);
+    handleAuthenticatedUser(result);
 }
 
 
@@ -5326,6 +5251,41 @@ QString MainWindow::getTargetString() const
 
 }
 
+LifeBalanceAI::Models::ProfileInput MainWindow::profileInputFromSetupPage() const
+{
+    LifeBalanceAI::Models::ProfileInput input;
+    input.nickname = ui->editNickname ? ui->editNickname->text().trimmed() : QString();
+    input.ageText = ui->spinBoxAge ? QString::number(ui->spinBoxAge->value()) : QString();
+    input.heightText = ui->editHeight ? ui->editHeight->text().trimmed() : QString();
+    input.weightText = ui->editWeight ? ui->editWeight->text().trimmed() : QString();
+    input.gender = ui->comboGender ? ui->comboGender->currentText() : QString();
+    input.goal = getTargetString();
+    if (QLineEdit *editAllergy = ui->page_3->findChild<QLineEdit *>(QStringLiteral("editAllergy")))
+        input.allergy = editAllergy->text().trimmed();
+    input.dietPref = getDietString();
+    input.sportPref = getSportString();
+    return input;
+}
+
+LifeBalanceAI::Models::ProfileInput MainWindow::profileInputFromProfilePage() const
+{
+    LifeBalanceAI::Models::ProfileInput input;
+    const LifeBalanceAI::Models::ProfileData existing =
+        DatabaseManager::instance().getProfile(m_currentUserId);
+
+    QLineEdit *editNickname5 = ui->page_5->findChild<QLineEdit *>(QStringLiteral("editNickname5"));
+    input.nickname = editNickname5 ? editNickname5->text().trimmed() : existing.nickname;
+    input.ageText = ui->spinBoxAge5 ? QString::number(ui->spinBoxAge5->value()) : QString();
+    input.heightText = ui->editHeight5 ? numericPrefix(ui->editHeight5->text()) : QString();
+    input.weightText = ui->editWeight5 ? numericPrefix(ui->editWeight5->text()) : QString();
+    input.gender = ui->comboGender5 ? ui->comboGender5->currentText() : QString();
+    input.goal = ui->editGoal5 ? ui->editGoal5->text().trimmed() : existing.goal;
+    input.allergy = ui->editAllergy5 ? ui->editAllergy5->text().trimmed() : existing.allergy;
+    input.dietPref = existing.dietPref;
+    input.sportPref = existing.sportPref;
+    return input;
+}
+
 
 
 
@@ -5348,451 +5308,93 @@ QString MainWindow::getTargetString() const
 
 
 
-void MainWindow::on_btnSaveProfile_clicked()
-
-
-
+// Populate page_3 form fields with existing profile data for editing
+void MainWindow::populateProfileEditFields(const LifeBalanceAI::Models::ProfileData &profile)
 {
-
-
-
-    if (m_currentUserId < 0) {
-
-
-
-        AnimatedDialog::warn(this, tr("错误"), tr("未检测到登录用户，请重新登录！"));
-
-
-
-        return;
-
-
-
-    }
-
-
-
-
-
-
-
-    int age    = ui->spinBoxAge->value();
-
-
-
-    double height = ui->editHeight->text().toDouble();
-
-
-
-    double weight = ui->editWeight->text().toDouble();
-
-
-
-    QString gender = ui->comboGender->currentText();
-
-
-
-
-
-
-
-    QString dietStr    = getDietString();
-
-
-
-    QString sportStr   = getSportString();
-
-
-
-    QString targetStr  = getTargetString();
-
-
-
-
-
-
-
-    if (age <= 0) {
-
-
-
-        AnimatedDialog::warn(this, tr("保存失败"), tr("请选择有效的年龄！"));
-
-
-
-        return;
-
-
-
-    }
-
-
-
-    if (height <= 0.0) {
-
-
-
-        AnimatedDialog::warn(this, tr("保存失败"), tr("请输入有效的身高！"));
-
-
-
-        return;
-
-
-
-    }
-
-
-
-    if (weight <= 0.0) {
-
-
-
-        AnimatedDialog::warn(this, tr("保存失败"), tr("请输入有效的体重！"));
-
-
-
-        return;
-
-
-
-    }
-
-
-
-
-
-
-
-    // Input range validation
-
-
-
-    {
-
-
-
-        LifeBalanceAI::Services::UserService svc;
-
-
-
-        QString err = svc.validateAge(QString::number(age));
-
-
-
-        if (!err.isEmpty()) { AnimatedDialog::warn(this, tr("保存失败"), err); return; }
-
-
-
-        err = svc.validateHeight(QString::number(height));
-
-
-
-        if (!err.isEmpty()) { AnimatedDialog::warn(this, tr("保存失败"), err); return; }
-
-
-
-        err = svc.validateWeight(QString::number(weight));
-
-
-
-        if (!err.isEmpty()) { AnimatedDialog::warn(this, tr("保存失败"), err); return; }
-
-
-
-    }
-
-
-
-
-
-
-
-    // Build combined preferences string
-
-
-
-    QStringList prefParts;
-
-
-
-    if (!dietStr.isEmpty())
-
-
-
-        prefParts << QStringLiteral("饮食:") + dietStr;
-
-
-
-    if (!sportStr.isEmpty())
-
-
-
-        prefParts << QStringLiteral("运动:") + sportStr;
-
-
-
-    if (!targetStr.isEmpty())
-
-
-
-        prefParts << QStringLiteral("目标:") + targetStr;
-
-
-
-    QString combinedPreferences = prefParts.join(QStringLiteral(" | "));
-
-
-
-
-
-
-
-    qDebug() << "=== Saving Profile ===";
-
-
-
-    qDebug() << "preferences (combined):" << combinedPreferences;
-
-
-
-
-
-
-
-    QString allergy = QString();
-
-
-
-    QLineEdit *editAllergy = ui->page_3->findChild<QLineEdit *>(QStringLiteral("editAllergy"));
-
-
-
-    if (editAllergy)
-
-
-
-        allergy = editAllergy->text().trimmed();
-
-
-
-
-
-
-
-    // Read nickname from the new field
-
-
-
-    QString nickname = ui->editNickname->text().trimmed();
-
-
-
-
-
-
-
-    bool ok = DatabaseManager::instance().saveProfile(
-
-
-
-        m_currentUserId, age, height, weight, gender,
-
-
-
-        targetStr, allergy, combinedPreferences, nickname);
-
-
-
-
-
-
-
-    if (!ok) {
-
-
-
-        AnimatedDialog::warn(this, tr("保存失败"), tr("数据库写入异常，请稍后重试！"));
-
-
-
-        return;
-
-
-
-    }
-
-
-
-
-
-
-
-    AnimatedDialog::info(this, tr("保存成功"), tr("画像已建立！"));
-
-
-
-
-
-
-
-    // Clear profile fields
-
-
-
-    ui->spinBoxAge->setValue(0);
-
-
-
-    ui->editHeight->clear();
-
-
-
-    ui->editWeight->clear();
-
-
-
-    ui->comboGender->setCurrentIndex(0);
-
-
-
-    for (QCheckBox *cb : ui->groupBoxFood->findChildren<QCheckBox *>())
-
-
-
-        cb->setChecked(false);
-
-
-
-    for (QCheckBox *cb : ui->groupBoxSports->findChildren<QCheckBox *>())
-
-
-
-        cb->setChecked(false);
-
-
-
-    for (QCheckBox *cb : ui->groupBoxTarget->findChildren<QCheckBox *>())
-
-
-
-        cb->setChecked(false);
-
-
-
-    ui->editFood->clear();
-
-
-
-    ui->editSports->clear();
-
-
-
-    ui->editTarget->clear();
-
-
-
-
-
-
-
-    // After saving profile, trigger AI plan generation only if no plan exists
-
-
-
-    qDebug() << "Profile saved for user" << m_currentUserId
-
-
-
-             << "- checking for existing plan...";
-
-
-
-    if (!DatabaseManager::instance().hasPlan(m_currentUserId))
-
-
-
-        requestAIPlan();
-
-
-
-
-
-
-
-    // Navigate based on where we came from
-
-
-
-    if (m_profileEditFromPage5) {
-
-
-
-        m_profileEditFromPage5 = false;
-
-
-
-        if (QPushButton *btn = ui->page_3->findChild<QPushButton *>(QStringLiteral("btnBackPage3")))
-
-
-
-            btn->setVisible(false);
-
-
-
-        loadPage5();
-
-
-
-        navigateTo(4, false);  // back to page_5
-
-
-
-    } else if (DatabaseManager::instance().getUserRole(m_currentUserId) == QStringLiteral("admin")) {
-
-
-
-        // Admin user: go back to admin panel after creating profile
-
-
-
-        loadAdminPage();
-
-
-
-        if (QWidget *ap = ui->stackedWidget->findChild<QWidget *>(QStringLiteral("page_admin")))
-            ui->stackedWidget->setCurrentIndex(ui->stackedWidget->indexOf(ap));
-
-
-
+    ui->editNickname->setText(profile.nickname);
+    ui->spinBoxAge->setValue(profile.age);
+    ui->editHeight->setText(profile.height > 0 ? QString::number(profile.height, 'f', 1) : QString());
+    ui->editWeight->setText(profile.weight > 0 ? QString::number(profile.weight, 'f', 1) : QString());
+    if (!profile.gender.isEmpty()) {
+        int idx = ui->comboGender->findText(profile.gender);
+        if (idx >= 0) ui->comboGender->setCurrentIndex(idx);
     } else {
+        ui->comboGender->setCurrentIndex(0);
+    }
+    QLineEdit *editAllergy = ui->page_3->findChild<QLineEdit *>(QStringLiteral("editAllergy"));
+    if (editAllergy) editAllergy->setText(profile.allergy);
 
-
-
-        loadMainPage();
-
-
-
-        updatePlanUI();
-
-
-
-        navigateTo(3, false);  // page_4
-
-
-
+    // Parse and set diet preferences
+    const QStringList diets = profile.dietPref.split(QStringLiteral(", "), Qt::SkipEmptyParts);
+    for (QCheckBox *cb : ui->groupBoxFood->findChildren<QCheckBox *>()) {
+        cb->setChecked(diets.contains(cb->text(), Qt::CaseInsensitive));
     }
 
+    // Parse and set sports preferences
+    const QStringList sports = profile.sportPref.split(QStringLiteral(", "), Qt::SkipEmptyParts);
+    for (QCheckBox *cb : ui->groupBoxSports->findChildren<QCheckBox *>()) {
+        cb->setChecked(sports.contains(cb->text(), Qt::CaseInsensitive));
+    }
 
-
+    // Set goal-related checkboxes (from goal field)
+    const QStringList goals = profile.goal.split(QStringLiteral(", "), Qt::SkipEmptyParts);
+    for (QCheckBox *cb : ui->groupBoxTarget->findChildren<QCheckBox *>()) {
+        cb->setChecked(goals.contains(cb->text(), Qt::CaseInsensitive));
+    }
 }
 
+void MainWindow::on_btnSaveProfile_clicked()
+{
+    if (m_currentUserId < 0) {
+        AnimatedDialog::warn(this,
+                             QStringLiteral("\u9519\u8bef"),
+                             QStringLiteral("\u672a\u68c0\u6d4b\u5230\u767b\u5f55\u7528\u6237\uff0c\u8bf7\u91cd\u65b0\u767b\u5f55\uff01"));
+        return;
+    }
 
+    const bool editingFromProfileSetup = m_profileEditFromPage5;
+    const bool adminUser =
+        DatabaseManager::instance().getUserRole(m_currentUserId) == QStringLiteral("admin");
+    const auto mode = adminUser ? LifeBalanceAI::Models::ProfileSaveMode::AdminSetup
+        : editingFromProfileSetup ? LifeBalanceAI::Models::ProfileSaveMode::EditFromProfile
+                                  : LifeBalanceAI::Models::ProfileSaveMode::InitialSetup;
+    const auto saveResult = LifeBalanceAI::Services::ProfileFlowService::saveProfile(
+        m_currentUserId, profileInputFromSetupPage(), mode);
 
+    if (!saveResult.ok) {
+        AnimatedDialog::warn(this, QStringLiteral("\u4fdd\u5b58\u5931\u8d25"), saveResult.message);
+        return;
+    }
 
+    AnimatedDialog::info(this, QStringLiteral("\u4fdd\u5b58\u6210\u529f"), saveResult.message);
+    if (saveResult.requestNickname) {
+        const QString profileSummary = buildUserProfileString();
+        if (!profileSummary.isEmpty())
+            AIManager::instance().generateNickname(profileSummary);
+    }
 
+    if (editingFromProfileSetup) {
+        m_profileEditFromPage5 = false;
+        if (QPushButton *btn = ui->page_3->findChild<QPushButton *>(QStringLiteral("btnBackPage3")))
+            btn->setVisible(false);
+        loadMainPage();
+        updatePlanUI();
+        navigateTo(saveResult.nextRoute, false);
+        return;
+    }
 
+    if (saveResult.nextRoute == AppRoute::Admin) {
+        loadAdminPage();
+        navigateTo(AppRoute::Admin, false);
+        return;
+    }
 
+    loadMainPage();
+    updatePlanUI();
+    navigateTo(AppRoute::Home, false);
+    if (saveResult.needsInitialPlan)
+        requestAIPlanWhenHomeReady();
+}
 // 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲
 
 
@@ -5902,7 +5504,12 @@ void MainWindow::loadMainPage()
         if (result.reprofileRequired && !m_reprofilePromptPending) {
             m_reprofilePromptPending = true;
             QTimer::singleShot(900, this, [this]() {
-                if (!ui || m_currentUserId <= 0 || ui->stackedWidget->currentIndex() != 3) {
+                if (!ui || !ui->stackedWidget || m_currentUserId <= 0) {
+                    m_reprofilePromptPending = false;
+                    return;
+                }
+                const int homeIndex = ui->page_4 ? ui->stackedWidget->indexOf(ui->page_4) : 3;
+                if (ui->stackedWidget->currentIndex() != homeIndex) {
                     m_reprofilePromptPending = false;
                     return;
                 }
@@ -5919,7 +5526,9 @@ void MainWindow::loadMainPage()
                     return;
 
                 m_profileEditFromPage5 = true;
-                navigateTo(2, false);
+                LifeBalanceAI::Models::ProfileData existingProfile = DatabaseManager::instance().getProfile(m_currentUserId);
+                populateProfileEditFields(existingProfile);
+                navigateTo(AppRoute::ProfileSetup, false);
                 if (QPushButton *btn = ui->page_3->findChild<QPushButton *>(QStringLiteral("btnBackPage3")))
                     btn->setVisible(true);
             });
@@ -5948,31 +5557,12 @@ void MainWindow::loadMainPage()
 
 
     // Load long-term goal from Plans table (latest one)
-
-
-
+    // Do NOT set text on lblGoalContent here — it may have width 0 (page hidden),
+    // which would cause incorrect word-wrap. Just cache it; the expand click handler
+    // sets text at the correct width.
     QString goal = DatabaseManager::instance().getLongTermGoal(m_currentUserId);
+    m_goalText = goal.isEmpty() ? tr("（暂未设置）") : goal;
 
-
-
-    if (goal.isEmpty()) {
-
-
-
-        ui->lblGoalContent->setText(tr("（暂未设置）"));
-
-
-
-    } else {
-
-
-
-        ui->lblGoalContent->setText(goal);
-        ui->lblGoalContent->setToolTip(goal);
-
-
-
-    }
 
 
 
@@ -6030,7 +5620,7 @@ void MainWindow::loadMainPage()
 
 
 
-                requestAIPlan();
+                requestAIPlanWhenHomeReady();
 
 
 
@@ -6066,7 +5656,7 @@ void MainWindow::loadMainPage()
 
 
 
-                    requestAIPlan();
+                    requestAIPlanWhenHomeReady();
 
 
 
@@ -6162,8 +5752,7 @@ void MainWindow::loadMainPage()
 
 
 
-                    if (QWidget *ap = ui->stackedWidget->findChild<QWidget *>(QStringLiteral("page_admin")))
-                        ui->stackedWidget->setCurrentIndex(ui->stackedWidget->indexOf(ap));
+                    navigateTo(AppRoute::Admin, false);
 
 
 
@@ -6396,138 +5985,10 @@ void MainWindow::resolveSlotInfo(QTextEdit *textEdit,
 
 
 {
-
-
-
-    // Determine time_slot key and human-readable title
-
-
-
-    if (textEdit == ui->txtTodayMorning || textEdit == ui->txtTomorrowMorning || textEdit == ui->txtDayAfterMorning) {
-
-
-
-        outSlotKey = QStringLiteral("breakfast");
-
-
-
-    } else if (textEdit == ui->txtTodayLunch || textEdit == ui->txtTomorrowLunch || textEdit == ui->txtDayAfterLunch) {
-
-
-
-        outSlotKey = QStringLiteral("lunch");
-
-
-
-    } else if (textEdit == ui->txtTodayDinner || textEdit == ui->txtTomorrowDinner || textEdit == ui->txtDayAfterDinner) {
-
-
-
-        outSlotKey = QStringLiteral("dinner");
-
-
-
-    } else if (textEdit == ui->txtTodayExercise || textEdit == ui->txtTomorrowExercise || textEdit == ui->txtDayAfterExercise) {
-
-
-
-        outSlotKey = QStringLiteral("sports");
-
-
-
-    } else {
-
-
-
-        outSlotKey = QStringLiteral("unknown");
-
-
-
-    }
-
-
-
-
-
-
-
-    // Determine date prefix + slot 锟?build title
-
-
-
-    QString dayPrefix;
-
-
-
-    if (textEdit == ui->txtTodayMorning || textEdit == ui->txtTodayLunch ||
-
-
-
-        textEdit == ui->txtTodayDinner || textEdit == ui->txtTodayExercise) {
-
-
-
-        dayPrefix = QStringLiteral("今天");
-
-
-
-    } else if (textEdit == ui->txtTomorrowMorning || textEdit == ui->txtTomorrowLunch ||
-
-
-
-               textEdit == ui->txtTomorrowDinner || textEdit == ui->txtTomorrowExercise) {
-
-
-
-        dayPrefix = QStringLiteral("明天");
-
-
-
-    } else {
-
-
-
-        dayPrefix = QStringLiteral("后天");
-
-
-
-    }
-
-
-
-
-
-
-
-    QString slotChinese;
-
-
-
-    if (outSlotKey == QStringLiteral("breakfast")) slotChinese = QStringLiteral("早餐");
-
-
-
-    else if (outSlotKey == QStringLiteral("lunch"))    slotChinese = QStringLiteral("午餐");
-
-
-
-    else if (outSlotKey == QStringLiteral("dinner"))   slotChinese = QStringLiteral("晚餐");
-
-
-
-    else if (outSlotKey == QStringLiteral("sports"))   slotChinese = QStringLiteral("运动");
-
-
-
-    else slotChinese = outSlotKey;
-
-
-
-
-
-
-
-    outSlotTitle = dayPrefix + slotChinese;
+    const auto slotRef = LifeBalanceAI::Services::HomePlanService::resolveSlotRef(
+        textEdit ? textEdit->objectName() : QString());
+    outSlotKey = slotRef.valid ? slotRef.slotKey : QStringLiteral("unknown");
+    outSlotTitle = slotRef.valid ? slotRef.slotTitle : outSlotKey;
 
 
 
@@ -6596,6 +6057,12 @@ void MainWindow::onFeedbackButtonClicked(QTextEdit *textEdit, const QString &slo
 
 
     resolveSlotInfo(textEdit, slotKey, resolvedTitle);
+    const auto slotRef = LifeBalanceAI::Services::HomePlanService::resolveSlotRef(
+        textEdit ? textEdit->objectName() : QString());
+    if (!slotRef.valid) {
+        showHomePlanStatus(tr("未识别的计划时段，请刷新后重试。"));
+        return;
+    }
 
 
 
@@ -6611,7 +6078,7 @@ void MainWindow::onFeedbackButtonClicked(QTextEdit *textEdit, const QString &slo
 
 
 
-        AnimatedDialog::warn(this, tr("错误"), tr("未找到当前计划！"));
+        showHomePlanStatus(tr("暂无当前计划，无法反馈。"));
 
 
 
@@ -6627,43 +6094,7 @@ void MainWindow::onFeedbackButtonClicked(QTextEdit *textEdit, const QString &slo
 
 
 
-    QDate targetDate;
-
-
-
-    if (textEdit == ui->txtTodayMorning || textEdit == ui->txtTodayLunch ||
-
-
-
-        textEdit == ui->txtTodayDinner || textEdit == ui->txtTodayExercise) {
-
-
-
-        targetDate = QDate::currentDate();
-
-
-
-    } else if (textEdit == ui->txtTomorrowMorning || textEdit == ui->txtTomorrowLunch ||
-
-
-
-               textEdit == ui->txtTomorrowDinner || textEdit == ui->txtTomorrowExercise) {
-
-
-
-        targetDate = QDate::currentDate().addDays(1);
-
-
-
-    } else {
-
-
-
-        targetDate = QDate::currentDate().addDays(2);
-
-
-
-    }
+    QDate targetDate = slotRef.date;
 
 
 
@@ -6683,7 +6114,7 @@ void MainWindow::onFeedbackButtonClicked(QTextEdit *textEdit, const QString &slo
 
 
 
-        AnimatedDialog::warn(this, tr("错误"), tr("未找到对应时段的计划项！"));
+        showHomePlanStatus(tr("该时段暂无计划，无法反馈。"));
 
 
 
@@ -7015,7 +6446,7 @@ void MainWindow::onAdjustPlanClicked(QTextEdit *textEdit,
 
 
 
-        AnimatedDialog::warn(this, tr("错误"), tr("未找到当前计划！"));
+        showHomePlanStatus(tr("暂无当前计划，无法调整。"));
 
 
 
@@ -7031,35 +6462,21 @@ void MainWindow::onAdjustPlanClicked(QTextEdit *textEdit,
 
 
 
-    // Determine which day: today(0), tomorrow(1), day-after(2) by textEdit
+    const auto slotRef = LifeBalanceAI::Services::HomePlanService::resolveSlotRef(
+        textEdit ? textEdit->objectName() : QString());
+    if (!slotRef.valid || slotRef.slotKey != slotKey) {
+        showHomePlanStatus(tr("未识别的计划时段，请刷新后重试。"));
+        return;
+    }
 
-
-
-    int dayOffset = 0;
-
-
-
-    if (textEdit == ui->txtTomorrowMorning || textEdit == ui->txtTomorrowLunch ||
-
-
-
-        textEdit == ui->txtTomorrowDinner || textEdit == ui->txtTomorrowExercise)
-
-
-
-        dayOffset = 1;
-
-
-
-    else if (textEdit == ui->txtDayAfterMorning || textEdit == ui->txtDayAfterLunch ||
-
-
-
-             textEdit == ui->txtDayAfterDinner || textEdit == ui->txtDayAfterExercise)
-
-
-
-        dayOffset = 2;
+    const int dayOffset = slotRef.dayOffset;
+    QDate targetDate = slotRef.date;
+    int itemId = DatabaseManager::instance().getItemId(
+        planId, targetDate.toString(QStringLiteral("yyyy-MM-dd")), slotKey);
+    if (itemId < 0) {
+        showHomePlanStatus(tr("该时段暂无计划，无法调整。"));
+        return;
+    }
 
 
 
@@ -7124,18 +6541,6 @@ void MainWindow::onAdjustPlanClicked(QTextEdit *textEdit,
 
 
     userInput = userInput.trimmed();
-
-
-
-
-
-
-
-    QDate targetDate = QDate::currentDate().addDays(dayOffset);
-
-
-
-    int itemId = DatabaseManager::instance().getItemId(planId, targetDate.toString(QStringLiteral("yyyy-MM-dd")), slotKey);
 
 
 
@@ -7386,409 +6791,81 @@ void MainWindow::onPartialUpdateGenerated(const QString &jsonResult)
         m_pendingAdjustDate.clear();
     };
 
-
-
-
-
-
-
-    if (jsonResult.isEmpty()) {
-
-
-
-        AnimatedDialog::warn(this, tr("请求超时"), tr("AI 服务响应超时，请稍后重试。"));
-
-
-
+    const auto parseResult = LifeBalanceAI::Services::HomePlanService::parsePartialUpdate(
+        jsonResult,
+        QDate::currentDate(),
+        m_pendingAdjustDate);
+    if (!parseResult.ok) {
+        qWarning() << "onPartialUpdateGenerated: parse failed:" << parseResult.errorMessage;
+        showHomePlanStatus(tr("计划调整失败，可稍后重试。"));
         clearPendingAdjust();
         return;
-
-
-
     }
-
-
-
-    hideLoadingBar();
-
-
-
-
-
-
-
-    qDebug() << "=== onPartialUpdateGenerated ===";
-
-
-
-    qDebug() << "Raw JSON:" << jsonResult;
-
-
-
-
-
-
-
-    // Try to parse the response. May include markdown fences.
-
-
-
-    QString cleaned = jsonResult;
-
-
-
-    cleaned.remove(QStringLiteral("```json"));
-
-
-
-    cleaned.remove(QStringLiteral("```"));
-
-
-
-    cleaned = cleaned.trimmed();
-
-
-
-
-
-
-
-    QJsonDocument doc = QJsonDocument::fromJson(cleaned.toUtf8());
-
-
-
-    if (doc.isNull()) {
-
-
-
-        qCritical() << "onPartialUpdateGenerated: Failed to parse JSON.";
-
-
-
-        AnimatedDialog::warn(this, tr("解析失败"),
-
-
-
-                             tr("AI 返回的数据格式异常，请重试！"));
-
-
-
-        clearPendingAdjust();
-        return;
-
-
-
-    }
-
-
-
-
-
-
-
-    QJsonArray updates;
-
-
-
-    if (doc.isArray()) {
-
-
-
-        updates = doc.array();
-
-
-
-    } else if (doc.isObject() && doc.object().contains(QStringLiteral("daily"))) {
-
-
-
-        updates = doc.object()[QStringLiteral("daily")].toArray();
-
-
-
-    } else {
-
-
-
-        qCritical() << "onPartialUpdateGenerated: Unexpected JSON structure.";
-
-
-
-        AnimatedDialog::warn(this, tr("解析失败"),
-
-
-
-                             tr("AI 返回的数据结构异常，请重试！"));
-
-
-
-        clearPendingAdjust();
-        return;
-
-
-
-    }
-
-
-
-
-
-
-
-    if (updates.isEmpty()) {
-
-
-
-        AnimatedDialog::info(this, tr("调整完成"),
-
-
-
-                                 tr("AI 认为当前规划已合适，无需调整。"));
-
-
-
-        clearPendingAdjust();
-        return;
-
-
-
-    }
-
-
-
-
-
-
 
     int planId = DatabaseManager::instance().getLatestPlanId(m_currentUserId);
-
-
-
     if (planId < 0) {
-
-
-
-        AnimatedDialog::warn(this, tr("错误"), tr("未找到当前计划！"));
-
-
-
+        showHomePlanStatus(tr("未找到当前计划，请稍后重试。"));
         clearPendingAdjust();
         return;
-
-
-
     }
-
-
-
-
-
-
 
     int updatedCount = 0;
-
-
-
-    for (int i = 0; i < updates.size(); ++i) {
-
-
-
-        QJsonObject item = updates[i].toObject();
-
-
-
-
-
-
-
-        // Support both format: {day, time_slot, content} and {date, time_slot, content}
-
-
-
-        int dayOffset = item[QStringLiteral("day")].toInt(0);
-
-
-
-        QString dateStr;
-
-
-
-        if (dayOffset > 0) {
-
-
-
-            dateStr = QDate::currentDate().addDays(dayOffset - 1).toString(QStringLiteral("yyyy-MM-dd"));
-
-
-
-        } else {
-
-
-
-            dateStr = item[QStringLiteral("date")].toString();
-
-
-
-        }
-
-        if (!m_pendingAdjustDate.isEmpty())
-            dateStr = m_pendingAdjustDate;
-
-
-
-
-
-
-
-        QString timeSlot = item[QStringLiteral("time_slot")].toString();
-
-
-
-        QString content  = item[QStringLiteral("content")].toString();
-
-
-
-
-
-
-
-        if (dateStr.isEmpty() || timeSlot.isEmpty() || content.isEmpty())
-
-
-
-            continue;
-
-
-
-
-
-
-
-        int itemId = DatabaseManager::instance().getItemId(planId, dateStr, timeSlot);
-
-
-
+    for (const auto &item : parseResult.items) {
+        const int itemId = DatabaseManager::instance().getItemId(
+            planId,
+            item.date.toString(QStringLiteral("yyyy-MM-dd")),
+            item.timeSlot);
         if (itemId < 0) {
-
-
-
-            qWarning() << "onPartialUpdateGenerated: item not found for" << dateStr << timeSlot;
-
-
-
+            qWarning() << "onPartialUpdateGenerated: item not found for"
+                       << item.date << item.timeSlot;
             continue;
-
-
-
         }
 
-
-
-
-
-
-
-        if (DatabaseManager::instance().updateDailyItemContent(itemId, content)) {
-
-
-
-            updatedCount++;
-
-
-
-        }
-
-
-
+        if (DatabaseManager::instance().updateDailyItemContent(itemId, item.content))
+            ++updatedCount;
     }
-
-
-
-
-
-
-
-    qDebug() << "onPartialUpdateGenerated: updated" << updatedCount << "items.";
-
-
-
-
-
-
-
-    // Mark the originally-adjusted slot as protected (now that AI has processed it)
-
-
 
     if (!m_pendingAdjustSlotKey.isEmpty()) {
-
-
-
-        int adjItemId = DatabaseManager::instance().getItemId(planId, m_pendingAdjustDate, m_pendingAdjustSlotKey);
-
-
-
-        if (adjItemId > 0)
-
-
-
-            DatabaseManager::instance().markItemAdjusted(adjItemId);
-
-
-
-        m_pendingAdjustSlotKey.clear();
-
-
-
-        m_pendingAdjustDate.clear();
-
-
-
+        const int adjustedItemId = DatabaseManager::instance().getItemId(
+            planId,
+            m_pendingAdjustDate,
+            m_pendingAdjustSlotKey);
+        if (adjustedItemId > 0)
+            DatabaseManager::instance().markItemAdjusted(adjustedItemId);
     }
-
-
-
-
-
-
+    clearPendingAdjust();
 
     if (updatedCount > 0) {
-
-
-
-        // Reload the all-done label state since content changed
-
-
-
         updatePlanUI();
-
-
-
         updateAllDoneLabel();
-
-
-
-        AnimatedDialog::info(this, tr("调整完成"),
-
-
-
-                                 tr("已成功更新 %1 个时段的规划。").arg(updatedCount));
-
-
-
+        showHomePlanStatus(tr("已更新 %1 个时段的规划。").arg(updatedCount));
+    } else if (parseResult.items.isEmpty()) {
+        showHomePlanStatus(tr("当前规划已合适，无需调整。"));
     } else {
-
-
-
-        AnimatedDialog::warn(this, tr("调整失败"),
-
-
-
-                             tr("未能更新任何时段，请重试！"));
-
-
-
+        showHomePlanStatus(tr("计划调整未更新任何时段。"));
     }
+    return;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -7815,6 +6892,19 @@ void MainWindow::onPartialUpdateGenerated(const QString &jsonResult)
 
 
 
+
+void MainWindow::requestAIPlanWhenHomeReady()
+{
+    QTimer::singleShot(0, this, [this]() {
+        if (!ui || !ui->stackedWidget || m_currentUserId <= 0 || m_isRequestPending)
+            return;
+
+        if (routeForPageIndex(ui->stackedWidget->currentIndex()) != AppRoute::Home)
+            return;
+
+        requestAIPlan();
+    });
+}
 
 void MainWindow::requestAIPlan()
 
@@ -7881,6 +6971,9 @@ void MainWindow::requestAIPlan()
 
 
     ui->lblGoalContent->setText(tr("\U0001F916 AI 正在为你生成计划，请稍等..."));
+    if (m_goalContentEdit)
+        m_goalContentEdit->setPlainText(tr("\U0001F916 AI 正在为你生成计划，请稍等..."));
+    m_goalText = tr("\U0001F916 AI 正在为你生成计划，请稍等...");
 
 
 
@@ -8038,6 +7131,17 @@ void MainWindow::hideLoadingBar()
 
 }
 
+void MainWindow::showHomePlanStatus(const QString &message)
+{
+    m_goalText = message;
+    if (ui && ui->lblGoalContent)
+        ui->lblGoalContent->setText(message);
+    if (m_goalContentEdit)
+        m_goalContentEdit->setPlainText(message);
+    if (statusBar())
+        statusBar()->showMessage(message, 4500);
+}
+
 
 
 
@@ -8074,461 +7178,115 @@ void MainWindow::onPlanGenerated(const QString &jsonResult)
 
     hideLoadingBar();
 
-
-
-
-
-
-
-    if (jsonResult.isEmpty()) {
-
-
-
-        AnimatedDialog::warn(this, tr("请求超时"), tr("AI 服务响应超时，请稍后重试。"));
-
-
-
-        ui->lblGoalContent->setText(tr("（计划生成超时，请稍后重试）"));
-
-
-
-        return;
-
-
-
-    }
-
-
-
-    // Hide the loading bar 锟?AI response has arrived
-
-
-
-    hideLoadingBar();
-
-
-
-
-
-
-
     qDebug() << "=== onPlanGenerated ===";
-
-
-
     qDebug() << "Raw JSON:" << jsonResult;
 
-
-
-
-
-
-
-    // Attempt to parse the response
-
-
-
-    QJsonDocument doc = QJsonDocument::fromJson(jsonResult.toUtf8());
-
-
-
-
-
-
-
-    if (doc.isNull() || !doc.isObject()) {
-
-
-
-        QString cleaned = jsonResult;
-
-
-
-        cleaned.remove(QStringLiteral("```json"));
-
-
-
-        cleaned.remove(QStringLiteral("```"));
-
-
-
-        cleaned = cleaned.trimmed();
-
-
-
-        doc = QJsonDocument::fromJson(cleaned.toUtf8());
-
-
-
-    }
-
-
-
-
-
-
-
-    if (doc.isNull() || !doc.isObject()) {
-
-
-
-        qCritical() << "onPlanGenerated: Failed to parse JSON response.";
-
-
-
-        AnimatedDialog::warn(this, tr("解析失败"),
-
-
-
-                             tr("AI 返回的数据格式异常，请重试！"));
-
-
-
-        ui->lblGoalContent->setText(tr("（计划生成失败，请重试）"));
-
-
-
+    const auto parseResult = LifeBalanceAI::Services::HomePlanService::parseGeneratedPlan(
+        jsonResult,
+        QDate::currentDate());
+    if (!parseResult.ok) {
+        qWarning() << "onPlanGenerated: parse failed:" << parseResult.errorMessage;
+        showHomePlanStatus(tr("计划生成失败，可稍后重试。"));
         return;
-
-
-
     }
-
-
-
-
-
-
-
-    QJsonObject root = doc.object();
-
-
-
-
-
-
-
-    // 鈹€鈹€ 1. Extract long-term goals 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
-
-
-
-    QString longTermText;
-
-
-
-    if (root.contains(QStringLiteral("long_term"))) {
-
-
-
-        QJsonObject lt = root[QStringLiteral("long_term")].toObject();
-
-
-
-        QStringList ltParts;
-
-
-
-        if (lt.contains(QStringLiteral("week")))
-
-
-
-            ltParts << QStringLiteral("本周: %1").arg(lt[QStringLiteral("week")].toString());
-
-
-
-        if (lt.contains(QStringLiteral("month")))
-
-
-
-            ltParts << QStringLiteral("本月: %1").arg(lt[QStringLiteral("month")].toString());
-
-
-
-        if (lt.contains(QStringLiteral("year")))
-
-
-
-            ltParts << QStringLiteral("本年: %1").arg(lt[QStringLiteral("year")].toString());
-
-
-
-        longTermText = ltParts.join(QStringLiteral("\n"));
-
-
-
-    } else {
-
-
-
-        longTermText = tr("（未提供长期目标）");
-
-
-
-    }
-
-
-
-
-
-
-
-    // 鈹€鈹€ 2. Create or reuse plan in DB 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
-
-
 
     QDate today = QDate::currentDate();
-
-
-
     int existingPlanId = DatabaseManager::instance().getLatestPlanId(m_currentUserId);
-
-
-
     int planId = -1;
-
-
-
     bool reusePlan = false;
 
-
-
-
-
-
-
     if (existingPlanId > 0) {
-
-
-
         auto existingTodayItems = DatabaseManager::instance().getItemsForDate(existingPlanId, today);
-
-
-
         if (!existingTodayItems.isEmpty()) {
-
-
-
-            // Today already has items 锟?reuse the existing plan to preserve checkmarks
-
-
-
             planId = existingPlanId;
-
-
-
             reusePlan = true;
-
-
-
             qDebug() << "onPlanGenerated: Reusing existing plan ID:" << planId;
-
-
-
         }
-
-
-
     }
-
-
-
-
-
-
 
     if (planId < 0) {
-
-
-
         planId = DatabaseManager::instance().createPlan(
-
-
-
-            m_currentUserId, QStringLiteral("3-day"), longTermText);
-
-
-
+            m_currentUserId, QStringLiteral("3-day"), parseResult.longTermText);
         if (planId < 0) {
-
-
-
-            AnimatedDialog::warn(this, tr("数据库错误"), tr("创建计划失败！"));
-
-
-
+            showHomePlanStatus(tr("创建计划失败，请稍后重试。"));
             return;
-
-
-
         }
-
-
-
         qDebug() << "Created plan with ID:" << planId;
-
-
-
     }
 
-
-
-
-
-
-
-    // 鈹€鈹€ 3. Save daily items 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
-
-
-
-    QJsonArray daily = root[QStringLiteral("daily")].toArray();
-
-
-
-    if (daily.isEmpty()) {
-
-
-
-        qWarning() << "onPlanGenerated: daily array is empty.";
-
-
-
-    }
-
-
-
-
-
-
-
-    for (int i = 0; i < daily.size(); ++i) {
-
-
-
-        QJsonObject dayObj = daily[i].toObject();
-
-
-
-        int dayOffset = dayObj[QStringLiteral("day")].toInt(1);
-
-
-
-        QDate dayDate = today.addDays(dayOffset - 1);
-
-
-
-        QString dateStr = dayDate.toString(QStringLiteral("yyyy-MM-dd"));
-
-
-
-
-
-
-
-        // Skip dates that already have items in the plan (preserve checkmarks)
-
-
-
+    int savedCount = 0;
+    for (const auto &item : parseResult.items) {
         if (reusePlan) {
-
-
-
-            auto existingItems = DatabaseManager::instance().getItemsForDate(planId, dayDate);
-
-
-
+            auto existingItems = DatabaseManager::instance().getItemsForDate(planId, item.date);
             if (!existingItems.isEmpty())
-
-
-
                 continue;
-
-
-
         }
 
-
-
-
-
-
-
-        auto saveSlot = [&](const QString &slotKey, const QString &timeSlot) {
-
-
-
-            QString content = dayObj[slotKey].toString().trimmed();
-
-
-
-            if (!content.isEmpty()) {
-
-
-
-                DatabaseManager::instance().saveDailyItem(planId, dateStr, timeSlot, content);
-
-
-
-            }
-
-
-
-        };
-
-
-
-
-
-
-
-        saveSlot(QStringLiteral("breakfast"), QStringLiteral("breakfast"));
-
-
-
-        saveSlot(QStringLiteral("lunch"),     QStringLiteral("lunch"));
-
-
-
-        saveSlot(QStringLiteral("dinner"),    QStringLiteral("dinner"));
-
-
-
-        saveSlot(QStringLiteral("sports"),    QStringLiteral("sports"));
-
-
-
+        if (DatabaseManager::instance().saveDailyItem(
+                planId,
+                item.date.toString(QStringLiteral("yyyy-MM-dd")),
+                item.timeSlot,
+                item.content)) {
+            ++savedCount;
+        }
     }
 
-
-
-
-
-
-
-    qDebug() << "Saved" << daily.size() << "days of daily items.";
-
-
-
-
-
-
-
-    AnimatedDialog::info(this, tr("成功"), tr("AI 计划已生成并保存！"));
-
-
-
-
-
-
-
-    // 鈹€鈹€ 4. Refresh UI 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
-
-
-
+    qDebug() << "Saved" << savedCount << "daily items.";
+    showHomePlanStatus(tr("AI 计划已生成并保存。"));
     loadMainPage();
-
-
-
     updatePlanUI();
+    return;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -8572,14 +7330,19 @@ void MainWindow::onTabChanged(int index)
 
 
 
-        updatePlanUI();
-
-
-
     }
 
 
 
+    // Force the newly-visible tab's layout to complete before populating
+    // text.  On Android the QScrollArea viewport may still have 0 width
+    // when the currentChanged signal fires.
+    QWidget *tab = ui->tabWidgetDays->widget(index);
+    if (tab && tab->layout())
+        tab->layout()->activate();
+    QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+
+    updatePlanUI();
     updateButtonStatesForTab();
 
 
@@ -8728,15 +7491,11 @@ void MainWindow::updateButtonStatesForTab()
 
 
 
-        if (isAdjustBtn) {
-            if (!isToday)
-                btn->setEnabled(false);
-        } else {
+        if (!isAdjustBtn)
 
 
 
             btn->setEnabled(isToday);
-        }
 
 
 
@@ -9536,16 +8295,17 @@ void MainWindow::updatePlanUI()
         if (!textEdit)
             return;
 #ifdef Q_OS_ANDROID
-        constexpr int PlanTextHeight = 58;
+        textEdit->setMinimumHeight(76);
+        textEdit->setMaximumHeight(80);
 #else
-        constexpr int PlanTextHeight = 120;
+        textEdit->setMinimumHeight(120);
+        textEdit->setMaximumHeight(QWIDGETSIZE_MAX);
 #endif
-        textEdit->setMinimumHeight(PlanTextHeight);
-        textEdit->setMaximumHeight(PlanTextHeight);
-        textEdit->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        textEdit->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+        textEdit->setLineWrapMode(QTextEdit::WidgetWidth);
         textEdit->setReadOnly(true);
+        textEdit->setTextInteractionFlags(Qt::NoTextInteraction);
         textEdit->setFocusPolicy(Qt::NoFocus);
-        textEdit->setAttribute(Qt::WA_TransparentForMouseEvents, true);
         QFont planFont = textEdit->font();
         planFont.setWeight(QFont::Normal);
 #ifdef Q_OS_ANDROID
@@ -9554,6 +8314,14 @@ void MainWindow::updatePlanUI()
         textEdit->setFont(planFont);
         textEdit->document()->setDefaultFont(planFont);
         textEdit->document()->setDocumentMargin(4);
+#ifdef Q_OS_ANDROID
+        if (textEdit->verticalScrollBar()) {
+            textEdit->verticalScrollBar()->setFixedWidth(0);
+            textEdit->verticalScrollBar()->hide();
+        }
+        if (textEdit->viewport())
+            QScroller::grabGesture(textEdit->viewport(), QScroller::TouchGesture);
+#endif
         textEdit->updateGeometry();
     };
 
@@ -9565,7 +8333,7 @@ void MainWindow::updatePlanUI()
 
     for (QGroupBox *group : ui->tabWidgetDays->findChildren<QGroupBox *>()) {
 #ifdef Q_OS_ANDROID
-        constexpr int cardHeight = 120;
+        constexpr int cardHeight = 128;
 #else
         constexpr int cardHeight = 242;
 #endif
@@ -9578,13 +8346,34 @@ void MainWindow::updatePlanUI()
         auto *layout = content ? qobject_cast<QVBoxLayout *>(content->layout()) : nullptr;
         if (!content || !layout)
             continue;
-        layout->activate();
         const int hintHeight = qMax(layout->sizeHint().height(), content->minimumSizeHint().height());
         content->setMinimumHeight(hintHeight);
         content->setMaximumHeight(hintHeight);
-        content->resize(qMax(scrollArea->viewport()->width(), 1), hintHeight);
+        // setWidgetResizable(true) may fail to resize the content widget when
+        // the QScrollArea first becomes visible on Android.  Force it here.
+        const int vpW = scrollArea->viewport() ? scrollArea->viewport()->width() : 0;
+        if (vpW > 0) {
+            content->setMinimumWidth(0);
+            content->setMaximumWidth(vpW);
+        }
+        content->resize(qMax(vpW, 1), hintHeight);
+        // Re-activate after the resize so children (QTextEdits) pick up the
+        // new content width.  layout->activate() above ran with the old size.
+        layout->activate();
         scrollArea->verticalScrollBar()->setSingleStep(48);
         scrollArea->verticalScrollBar()->setPageStep(qMax(120, scrollArea->viewport()->height() - 48));
+    }
+
+    // Force correct text width on all plan QTextEdits.  On Android the
+    // resize cascade through QScrollArea may not have reached them yet.
+    {
+        const QList<QTextEdit *> edits = {
+            ui->txtTodayMorning, ui->txtTodayLunch, ui->txtTodayDinner, ui->txtTodayExercise,
+            ui->txtTomorrowMorning, ui->txtTomorrowLunch, ui->txtTomorrowDinner, ui->txtTomorrowExercise,
+            ui->txtDayAfterMorning, ui->txtDayAfterLunch, ui->txtDayAfterDinner, ui->txtDayAfterExercise
+        };
+        for (QTextEdit *edit : edits)
+            forceTextWidth(edit);
     }
 
     qDebug() << "updatePlanUI: plan UI updated with is_done & all-done state.";
@@ -9845,6 +8634,7 @@ void MainWindow::onViewYesterdayClicked()
     auto *content = new QTextEdit(&reviewDialog);
     content->setObjectName(QStringLiteral("yesterdayReviewText"));
     content->setReadOnly(true);
+    content->setTextInteractionFlags(Qt::NoTextInteraction);
     content->setPlainText(display);
     content->setLineWrapMode(QTextEdit::WidgetWidth);
     content->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -9928,12 +8718,12 @@ void MainWindow::loadPage5()
 
 #ifdef Q_OS_ANDROID
     if (ui->lblPage5Title) {
-        ui->lblPage5Title->setMinimumHeight(64);
-        ui->lblPage5Title->setMaximumHeight(78);
+        ui->lblPage5Title->setMinimumHeight(56);
+        ui->lblPage5Title->setMaximumHeight(66);
         ui->lblPage5Title->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     }
     if (ui->groupBoxUserInfo) {
-        ui->groupBoxUserInfo->setFixedHeight(138);
+        ui->groupBoxUserInfo->setFixedHeight(128);
         ui->groupBoxUserInfo->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
         if (auto *form = qobject_cast<QFormLayout *>(ui->groupBoxUserInfo->layout())) {
             form->setContentsMargins(12, 10, 12, 8);
@@ -9942,7 +8732,7 @@ void MainWindow::loadPage5()
         }
     }
     if (ui->groupBoxEditProfile) {
-        ui->groupBoxEditProfile->setFixedHeight(360);
+        ui->groupBoxEditProfile->setFixedHeight(338);
         ui->groupBoxEditProfile->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     }
 #endif
@@ -10340,7 +9130,12 @@ void MainWindow::loadPage5()
 
 
 
-                ui->stackedWidget->setCurrentIndex(2);
+                LifeBalanceAI::Models::ProfileData existingProfile = DatabaseManager::instance().getProfile(m_currentUserId);
+                populateProfileEditFields(existingProfile);
+
+
+
+                navigateTo(AppRoute::ProfileSetup, false);
 
 
 
@@ -10415,8 +9210,8 @@ void MainWindow::loadPage5()
     if (page5Layout) {
 
 #ifdef Q_OS_ANDROID
-        page5Layout->setContentsMargins(14, 18, 14, 10);
-        page5Layout->setSpacing(12);
+        page5Layout->setContentsMargins(14, 14, 14, 12);
+        page5Layout->setSpacing(10);
 #endif
 
 
@@ -10450,20 +9245,7 @@ void MainWindow::loadPage5()
 
 
             connect(btnLogout, &QPushButton::clicked, this, [this]() {
-
-
-
-                clearAutoLoginSession();
-
-
-
-                m_currentUserId = -1;
-
-
-
-                ui->stackedWidget->setCurrentIndex(0);
-
-
+                logoutToLogin();
 
             });
 
@@ -10496,8 +9278,8 @@ void MainWindow::loadPage5()
         }
 
 #ifdef Q_OS_ANDROID
-        btnLogout->setMinimumHeight(52);
-        btnLogout->setMaximumHeight(56);
+        btnLogout->setMinimumHeight(46);
+        btnLogout->setMaximumHeight(50);
         btnLogout->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
 #endif
 
@@ -10551,7 +9333,7 @@ void MainWindow::loadPage5()
 
 
 
-                    ui->stackedWidget->setCurrentIndex(5);
+                    navigateTo(AppRoute::Payment, false);
 
 
 
@@ -10574,8 +9356,8 @@ void MainWindow::loadPage5()
             }
 
 #ifdef Q_OS_ANDROID
-            btnUpgrade->setMinimumHeight(52);
-            btnUpgrade->setMaximumHeight(56);
+            btnUpgrade->setMinimumHeight(46);
+            btnUpgrade->setMaximumHeight(50);
             btnUpgrade->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
 #endif
 
@@ -10598,16 +9380,8 @@ void MainWindow::loadPage5()
 
 
 #ifdef Q_OS_ANDROID
-        BottomNavBar *profileNav = ui->page_5->findChild<BottomNavBar *>(QStringLiteral("androidBottomNavProfile"));
-        if (!profileNav) {
-            profileNav = createAndroidPageNav(3, ui->page_5);
-            profileNav->setObjectName(QStringLiteral("androidBottomNavProfile"));
-            page5Layout->addWidget(profileNav);
-        } else {
-            profileNav->setCurrentIndex(3);
-        }
-        profileNav->setFixedHeight(64);
-        profileNav->show();
+        ui->page_5->installEventFilter(this);
+        updateBottomNavVisibility(ui->page_5 ? ui->stackedWidget->indexOf(ui->page_5) : 4);
 #endif
 
     }
@@ -10686,7 +9460,7 @@ void MainWindow::on_btnPay6_clicked()
 
 
 
-        navigateTo(3, false);  // back to page_4
+        navigateTo(AppRoute::Home, false);  // back to page_4
 
 
 
@@ -10735,197 +9509,36 @@ void MainWindow::on_btnBack6_clicked()
 
 
 void MainWindow::on_btnSaveProfile5_clicked()
-
-
-
 {
-
-
-
     qDebug() << "on_btnSaveProfile5_clicked called";
 
-
-
     if (m_currentUserId < 0) {
-
-
-
-        AnimatedDialog::warn(this, tr("错误"), tr("未检测到登录用户！"));
-
-
-
+        AnimatedDialog::warn(this,
+                             QStringLiteral("\u9519\u8bef"),
+                             QStringLiteral("\u672a\u68c0\u6d4b\u5230\u767b\u5f55\u7528\u6237\uff01"));
         return;
-
-
-
     }
 
-
-
-
-
-
-
-    int age = ui->spinBoxAge5->value();
-
-
-
-    double height = ui->editHeight5->text().toDouble();
-
-
-
-    double weight = ui->editWeight5->text().toDouble();
-
-
-
-    QString gender = ui->comboGender5->currentText();
-
-
-
-    QString allergy = ui->editAllergy5->text().trimmed();
-
-
-
-    QString goal = ui->editGoal5->text().trimmed();
-
-
-
-
-
-
-
-    if (age <= 0 || height <= 0 || weight <= 0) {
-
-
-
-        AnimatedDialog::warn(this, tr("错误"), tr("请填写完整的年龄、身高、体重！"));
-
-
-
+    const auto saveResult = LifeBalanceAI::Services::ProfileFlowService::saveProfile(
+        m_currentUserId,
+        profileInputFromProfilePage(),
+        LifeBalanceAI::Models::ProfileSaveMode::EditFromProfile);
+    if (!saveResult.ok) {
+        AnimatedDialog::warn(this, QStringLiteral("\u9519\u8bef"), saveResult.message);
         return;
-
-
-
     }
 
-
-
-
-
-
-
-    // Preserve existing diet/sport preferences from DB
-
-
-
-    auto &db = DatabaseManager::instance();
-
-
-
-    LifeBalanceAI::Models::ProfileData existing = db.getProfile(m_currentUserId);
-
-
-
-
-
-
-
-    // Read nickname from page_5 (if field exists)
-
-
-
-    QLineEdit *editNickname5 = ui->page_5->findChild<QLineEdit *>(QStringLiteral("editNickname5"));
-
-
-
-    QString nickname = editNickname5 ? editNickname5->text().trimmed() : existing.nickname;
-
-
-
-
-
-
-
-    QString prefs = QStringLiteral("饮食:") + existing.dietPref
-
-
-
-                  + QStringLiteral(" | 运动:") + existing.sportPref
-
-
-
-                  + QStringLiteral(" | 目标:") + goal;
-
-
-
-
-
-
-
-    bool ok = db.saveProfile(m_currentUserId, age, height, weight,
-
-
-
-                             gender, goal, allergy, prefs, nickname);
-
-
-
-
-
-
-
-    if (!ok) {
-
-
-
-        AnimatedDialog::warn(this, tr("错误"), tr("画像保存失败，请重试！"));
-
-
-
-        return;
-
-
-
+    AnimatedDialog::info(this, QStringLiteral("\u6210\u529f"), saveResult.message);
+    if (saveResult.requestNickname) {
+        const QString profileSummary = buildUserProfileString();
+        if (!profileSummary.isEmpty())
+            AIManager::instance().generateNickname(profileSummary);
     }
-
-
-
-
-
-
-
-    AnimatedDialog::info(this, tr("成功"), tr("画像已更新！"));
-
-
-
-
-
-
-
-    // Refresh main page and go back
-
-
 
     loadMainPage();
-
-
-
     updatePlanUI();
-
-
-
-    ui->stackedWidget->setCurrentIndex(3);
-
-
-
+    navigateTo(saveResult.nextRoute, false);
 }
-
-
-
-
-
-
-
 void MainWindow::on_btnBackToMain_clicked()
 
 
@@ -10938,7 +9551,7 @@ void MainWindow::on_btnBackToMain_clicked()
 
 
 
-    navigateTo(3, true);
+    navigateTo(AppRoute::Home, true);
 
 
 
@@ -11134,6 +9747,14 @@ void MainWindow::onDeepAnalysisReady(int userId, const LifeBalanceAI::Models::De
 
 
 
+void MainWindow::onNicknameGenerated(const QString &nickname)
+{
+    if (m_currentUserId <= 0 || nickname.isEmpty()) return;
+    DatabaseManager::instance().updateNickname(m_currentUserId, nickname.trimmed());
+    // Refresh sidebar to show new nickname
+    setupSideDrawer();
+}
+
 void MainWindow::onDeepAnalysisError(int userId, const QString &error)
 
 
@@ -11150,7 +9771,9 @@ void MainWindow::onDeepAnalysisError(int userId, const QString &error)
 
 
 
-    AnimatedDialog::warn(this, tr("分析失败"), error);
+    qWarning() << "Deep analysis failed:" << error;
+    if (statusBar())
+        statusBar()->showMessage(tr("分析暂时不可用，可稍后重试。"), 5000);
 
 
 
@@ -11289,7 +9912,20 @@ void MainWindow::showReportHistory()
     QDialog picker(this);
     picker.setObjectName(QStringLiteral("reportHistoryDialog"));
     picker.setWindowTitle(tr("我的周报"));
+    picker.setAttribute(Qt::WA_StyledBackground, true);
+    picker.setStyleSheet(QStringLiteral(
+        "#reportHistoryDialog{"
+        "  background:#FFFFFF;"
+        "  border:2px solid #4CAF7F;"
+        "  border-radius:8px;"
+        "}"
+    ));
+#ifdef Q_OS_ANDROID
+    const int screenW = QGuiApplication::primaryScreen()->availableGeometry().width();
+    picker.setMinimumSize(qMin(screenW - 36, 430), 420);
+#else
     picker.setMinimumSize(430, 420);
+#endif
 
     auto *pickerLayout = new QVBoxLayout(&picker);
     pickerLayout->setContentsMargins(18, 18, 18, 18);
@@ -11324,6 +9960,13 @@ void MainWindow::showReportHistory()
     connect(btnClosePicker, &QPushButton::clicked, &picker, &QDialog::reject);
     connect(btnViewReport, &QPushButton::clicked, &picker, &QDialog::accept);
     connect(reportList, &QListWidget::itemDoubleClicked, &picker, [&picker]() { picker.accept(); });
+
+    // Center on screen (layout is now fully built)
+    {
+        const QRect avail = QGuiApplication::primaryScreen()->availableGeometry();
+        picker.resize(picker.sizeHint());
+        picker.move(avail.center() - picker.rect().center());
+    }
 
     if (picker.exec() != QDialog::Accepted)
         return;
@@ -11391,15 +10034,14 @@ void MainWindow::showReportHistory()
 
 
 
-    QJsonDocument doc = QJsonDocument::fromJson(report.aiSummary.toUtf8());
+    const auto parsedSummary =
+        LifeBalanceAI::Services::AiResponseParser::parseReportSummary(report.aiSummary);
+
+    if (parsedSummary.ok) {
 
 
 
-    if (doc.isObject()) {
-
-
-
-        QJsonObject ai = doc.object();
+        QJsonObject ai = parsedSummary.summaryObject;
 
 
 
@@ -11446,7 +10088,22 @@ void MainWindow::showReportHistory()
     QDialog detail(this);
     detail.setObjectName(QStringLiteral("reportHistoryDialog"));
     detail.setWindowTitle(tr("报告详情"));
+    detail.setAttribute(Qt::WA_StyledBackground, true);
+    detail.setStyleSheet(QStringLiteral(
+        "#reportHistoryDialog{"
+        "  background:#FFFFFF;"
+        "  border:2px solid #4CAF7F;"
+        "  border-radius:8px;"
+        "}"
+    ));
+#ifdef Q_OS_ANDROID
+    {
+        const int scrW = QGuiApplication::primaryScreen()->availableGeometry().width();
+        detail.setMinimumSize(qMin(scrW - 36, 460), 520);
+    }
+#else
     detail.setMinimumSize(460, 520);
+#endif
 
     auto *detailLayout = new QVBoxLayout(&detail);
     detailLayout->setContentsMargins(18, 18, 18, 18);
@@ -11463,6 +10120,7 @@ void MainWindow::showReportHistory()
     auto *detailText = new QTextEdit(&detail);
     detailText->setObjectName(QStringLiteral("reportDetailText"));
     detailText->setReadOnly(true);
+    detailText->setTextInteractionFlags(Qt::NoTextInteraction);
     detailText->setPlainText(summaryText);
     detailText->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     detailText->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -11485,6 +10143,13 @@ void MainWindow::showReportHistory()
         action = 1;
         detail.accept();
     });
+
+    // Center on screen (layout is now fully built)
+    {
+        const QRect avail = QGuiApplication::primaryScreen()->availableGeometry();
+        detail.resize(detail.sizeHint());
+        detail.move(avail.center() - detail.rect().center());
+    }
 
     if (detail.exec() == QDialog::Accepted && action == 1)
         onExportReport(report.rid, QStringLiteral("png"));
@@ -11617,16 +10282,23 @@ int MainWindow::setupAnalysisPage()
     auto *vlay = new QVBoxLayout(scrollContent);
 
 #ifdef Q_OS_ANDROID
-    vlay->setContentsMargins(18, 18, 18, 10);
-    vlay->setSpacing(14);
+    vlay->setContentsMargins(18, 10, 18, 16);
+    vlay->setSpacing(10);
 #else
     vlay->setContentsMargins(24, 24, 24, 20);
     vlay->setSpacing(16);
 #endif
     pageScroll->setWidget(scrollContent);
     rootLayout->addWidget(pageScroll, 1);
-    auto *analysisHero = UiFactory::assetLabel(QStringLiteral(":/assets/ai_analysis.png"), 228, existing);
-    analysisHero->setMinimumHeight(228);
+    const int analysisHeroHeight =
+#ifdef Q_OS_ANDROID
+        172;
+#else
+        228;
+#endif
+    auto *analysisHero = UiFactory::assetLabel(QStringLiteral(":/assets/ai_analysis.png"), analysisHeroHeight, existing);
+    analysisHero->setMinimumHeight(analysisHeroHeight);
+    analysisHero->setMaximumHeight(analysisHeroHeight + 12);
     vlay->addWidget(analysisHero);
 
 
@@ -11691,7 +10363,11 @@ int MainWindow::setupAnalysisPage()
 
 
 
+#ifdef Q_OS_ANDROID
+        vlay->addSpacing(64);
+#else
         vlay->addStretch();
+#endif
 
 
 
@@ -11787,7 +10463,7 @@ int MainWindow::setupAnalysisPage()
 
 
 
-            ui->stackedWidget->setCurrentIndex(5);
+            navigateTo(AppRoute::Payment, false);
 
 
 
@@ -11803,7 +10479,11 @@ int MainWindow::setupAnalysisPage()
 
 
 
+#ifdef Q_OS_ANDROID
+        vlay->addSpacing(64);
+#else
         vlay->addStretch();
+#endif
 
 
 
@@ -11811,13 +10491,10 @@ int MainWindow::setupAnalysisPage()
 
 
 
-#ifdef Q_OS_ANDROID
-    rootLayout->addWidget(createAndroidPageNav(1, existing));
-#endif
-
     UiFactory::applyWarmPolish(existing);
     installKineticVerticalScroll(existing);
     relaxAndroidWidthConstraints(existing);
+    syncShellRouteIndexes();
     return m_analysisPageIndex;
 
 
@@ -11944,16 +10621,23 @@ int MainWindow::setupReportPage()
     auto *vlay = new QVBoxLayout(scrollContent);
 
 #ifdef Q_OS_ANDROID
-    vlay->setContentsMargins(18, 18, 18, 10);
-    vlay->setSpacing(14);
+    vlay->setContentsMargins(18, 10, 18, 16);
+    vlay->setSpacing(10);
 #else
     vlay->setContentsMargins(24, 24, 24, 20);
     vlay->setSpacing(16);
 #endif
     pageScroll->setWidget(scrollContent);
     rootLayout->addWidget(pageScroll, 1);
-    auto *reportHero = UiFactory::assetLabel(QStringLiteral(":/assets/empty_report.png"), 228, existing);
-    reportHero->setMinimumHeight(228);
+    const int reportHeroHeight =
+#ifdef Q_OS_ANDROID
+        160;
+#else
+        228;
+#endif
+    auto *reportHero = UiFactory::assetLabel(QStringLiteral(":/assets/empty_report.png"), reportHeroHeight, existing);
+    reportHero->setMinimumHeight(reportHeroHeight);
+    reportHero->setMaximumHeight(reportHeroHeight + 12);
     vlay->addWidget(reportHero);
 
 
@@ -11990,8 +10674,8 @@ int MainWindow::setupReportPage()
     metricsCard->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     auto *metricsLayout = new QVBoxLayout(metricsCard);
 #ifdef Q_OS_ANDROID
-    metricsLayout->setContentsMargins(14, 14, 14, 14);
-    metricsLayout->setSpacing(10);
+    metricsLayout->setContentsMargins(10, 10, 10, 10);
+    metricsLayout->setSpacing(7);
 #else
     metricsLayout->setContentsMargins(16, 16, 16, 16);
     metricsLayout->setSpacing(12);
@@ -12059,6 +10743,7 @@ int MainWindow::setupReportPage()
     trend->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
 
 #ifdef Q_OS_ANDROID
+    progress->setMaximumSize(96, 96);
     auto *progressWrap = new QWidget(metricsCard);
     auto *progressLayout = new QHBoxLayout(progressWrap);
     progressLayout->setContentsMargins(0, 0, 0, 0);
@@ -12066,6 +10751,8 @@ int MainWindow::setupReportPage()
     progressLayout->addWidget(progress);
     progressLayout->addStretch();
     metricsLayout->addWidget(progressWrap);
+    trend->setMinimumHeight(118);
+    trend->setMaximumHeight(132);
     metricsLayout->addWidget(trend);
 #else
     metricsRow->addWidget(progress, 0, Qt::AlignTop);
@@ -12108,7 +10795,7 @@ int MainWindow::setupReportPage()
     calendar->setCheckInData(monthStatus);
     calendar->setMinimumWidth(0);
 #ifdef Q_OS_ANDROID
-    calendar->setFixedHeight(292);
+    calendar->setFixedHeight(224);
 #else
     calendar->setFixedHeight(350);
 #endif
@@ -12182,17 +10869,18 @@ int MainWindow::setupReportPage()
 
 
 
-    vlay->addStretch();
-
-
-
 #ifdef Q_OS_ANDROID
-    rootLayout->addWidget(createAndroidPageNav(2, existing));
+    vlay->addSpacing(96);
+#else
+    vlay->addStretch();
 #endif
+
+
 
     UiFactory::applyWarmPolish(existing);
     installKineticVerticalScroll(existing);
     relaxAndroidWidthConstraints(existing);
+    syncShellRouteIndexes();
     return m_reportPageIndex;
 
 
@@ -12355,15 +11043,14 @@ void MainWindow::onReportReady(int userId, const LifeBalanceAI::Models::ReportDa
 
 
 
-    QJsonDocument doc = QJsonDocument::fromJson(report.aiSummary.toUtf8());
+    const auto parsedSummary =
+        LifeBalanceAI::Services::AiResponseParser::parseReportSummary(report.aiSummary);
+
+    if (parsedSummary.ok) {
 
 
 
-    if (doc.isObject()) {
-
-
-
-        QJsonObject ai = doc.object();
+        QJsonObject ai = parsedSummary.summaryObject;
 
 
 
@@ -12443,7 +11130,9 @@ void MainWindow::onReportError(int userId, const QString &error)
 
 
 
-    AnimatedDialog::warn(this, tr("报告生成失败"), error);
+    qWarning() << "Report generation failed:" << error;
+    if (statusBar())
+        statusBar()->showMessage(tr("周报暂时不可用，可稍后重试。"), 5000);
 
 
 
@@ -12662,6 +11351,8 @@ void MainWindow::loadAdminPage()
 
 
     table->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    table->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
+    table->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
 
 
 
@@ -13166,7 +11857,7 @@ void MainWindow::loadAdminPage()
 
 
 
-        navigateTo(3, false);
+        navigateTo(AppRoute::Home, false);
 
 
 
@@ -13190,7 +11881,7 @@ void MainWindow::loadAdminPage()
 
 
 
-        ui->stackedWidget->setCurrentIndex(0);
+        navigateTo(AppRoute::Login, false);
 
 
 

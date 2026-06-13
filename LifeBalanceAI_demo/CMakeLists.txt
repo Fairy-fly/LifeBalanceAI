@@ -8,6 +8,11 @@ qt_standard_project_setup()
 qt_add_executable(LifeBalanceAI_demo
     WIN32 MACOSX_BUNDLE
     main.cpp
+    approute.h
+    mobileshellcontroller.cpp
+    mobileshellcontroller.h
+    platformlayoutpolicy.cpp
+    platformlayoutpolicy.h
     mainwindow.cpp
     mainwindow.h
     mainwindow.ui
@@ -53,6 +58,16 @@ qt_add_executable(LifeBalanceAI_demo
     services/deepanalysisservice.h
     services/reportservice.cpp
     services/reportservice.h
+    services/authflowservice.cpp
+    services/authflowservice.h
+    services/authsessionservice.cpp
+    services/authsessionservice.h
+    services/homeplanservice.cpp
+    services/homeplanservice.h
+    services/airesponseparser.cpp
+    services/airesponseparser.h
+    services/profileflowservice.cpp
+    services/profileflowservice.h
     services/userservice.cpp
     services/userservice.h
 )
@@ -79,15 +94,6 @@ qt_add_resources(LifeBalanceAI_demo "LifeBalanceResources"
         resources/fonts/SmileySans-Oblique.otf
 )
 
-if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.env")
-    qt_add_resources(LifeBalanceAI_demo "LifeBalanceLocalConfig"
-        PREFIX "/config"
-        BASE "${CMAKE_CURRENT_SOURCE_DIR}"
-        FILES
-            .env
-    )
-endif()
-
 target_include_directories(LifeBalanceAI_demo PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 target_link_libraries(LifeBalanceAI_demo
@@ -97,6 +103,118 @@ target_link_libraries(LifeBalanceAI_demo
         Qt6::Sql
         Qt6::Network
 )
+
+if (NOT ANDROID)
+    find_package(Qt6 6.5 REQUIRED COMPONENTS Test)
+    enable_testing()
+
+    qt_add_executable(LifeBalanceAI_demo_tests
+        tests/test_userservice_validation.cpp
+        services/profileflowservice.cpp
+        services/profileflowservice.h
+        services/userservice.cpp
+        services/userservice.h
+        databasemanager.cpp
+        databasemanager.h
+        models/dto.h
+        approute.h
+    )
+
+    target_include_directories(LifeBalanceAI_demo_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
+    target_link_libraries(LifeBalanceAI_demo_tests
+        PRIVATE
+            Qt::Core
+            Qt::Sql
+            Qt::Test
+    )
+
+    add_test(NAME UserServiceValidation COMMAND LifeBalanceAI_demo_tests)
+
+    qt_add_executable(LifeBalanceAI_homeplan_tests
+        tests/test_homeplanservice.cpp
+        services/homeplanservice.cpp
+        services/homeplanservice.h
+        models/dto.h
+        approute.h
+    )
+
+    target_include_directories(LifeBalanceAI_homeplan_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
+    target_link_libraries(LifeBalanceAI_homeplan_tests
+        PRIVATE
+            Qt::Core
+            Qt::Test
+    )
+
+    add_test(NAME HomePlanService COMMAND LifeBalanceAI_homeplan_tests)
+
+    qt_add_executable(LifeBalanceAI_airesponse_tests
+        tests/test_airesponseparser.cpp
+        services/airesponseparser.cpp
+        services/airesponseparser.h
+        models/dto.h
+        approute.h
+    )
+
+    target_include_directories(LifeBalanceAI_airesponse_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
+    target_link_libraries(LifeBalanceAI_airesponse_tests
+        PRIVATE
+            Qt::Core
+            Qt::Test
+    )
+
+    add_test(NAME AiResponseParser COMMAND LifeBalanceAI_airesponse_tests)
+
+    qt_add_executable(LifeBalanceAI_authflow_tests
+        tests/test_authflowservice.cpp
+        services/authflowservice.cpp
+        services/authflowservice.h
+        services/profileflowservice.cpp
+        services/profileflowservice.h
+        services/userservice.cpp
+        services/userservice.h
+        databasemanager.cpp
+        databasemanager.h
+        models/dto.h
+        approute.h
+    )
+
+    target_include_directories(LifeBalanceAI_authflow_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
+    target_link_libraries(LifeBalanceAI_authflow_tests
+        PRIVATE
+            Qt::Core
+            Qt::Sql
+            Qt::Test
+    )
+
+    add_test(NAME AuthFlowService COMMAND LifeBalanceAI_authflow_tests)
+
+    qt_add_executable(LifeBalanceAI_profileflow_tests
+        tests/test_profileflowservice.cpp
+        services/profileflowservice.cpp
+        services/profileflowservice.h
+        services/userservice.cpp
+        services/userservice.h
+        databasemanager.cpp
+        databasemanager.h
+        models/dto.h
+        approute.h
+    )
+
+    target_include_directories(LifeBalanceAI_profileflow_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
+    target_link_libraries(LifeBalanceAI_profileflow_tests
+        PRIVATE
+            Qt::Core
+            Qt::Sql
+            Qt::Test
+    )
+
+    add_test(NAME ProfileFlowService COMMAND LifeBalanceAI_profileflow_tests)
+endif()
 
 if (ANDROID)
     set(ANDROID_OPENSSL_LIB_DIR

@@ -127,6 +127,7 @@ public:
     // Admin helpers
     bool deleteUser(int userId);
     bool resetPassword(int userId, const QString &newPassword);
+    bool updateNickname(int userId, const QString &nickname);
     bool updateUserPhone(int userId, const QString &phone);
 
     // Delete copy/move constructors and assignment operators

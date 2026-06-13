@@ -6,6 +6,7 @@
 #include <QPropertyAnimation>
 #include <QDate>
 #include <functional>
+#include "approute.h"
 #include "services/checkinservice.h"
 #include "services/freezecardservice.h"
 #include "services/deepanalysisservice.h"
@@ -18,6 +19,13 @@ class QLabel;
 class QPushButton;
 class QCheckBox;
 class LoadingOverlay;
+class MobileShellController;
+
+namespace LifeBalanceAI {
+namespace Services {
+class AuthSessionService;
+}
+}
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -50,6 +58,7 @@ private slots:
 
     // Login
     void on_btnLogin_clicked();
+    void onForgotPassword();
 
     // Save profile
     void on_btnSaveProfile_clicked();
@@ -59,6 +68,7 @@ private slots:
 
     // Helper: triggers AI plan generation using current user's profile
     void requestAIPlan();
+    void requestAIPlanWhenHomeReady();
 
     // Called when any of the 12 feedback buttons on page_4 is clicked
     void onFeedbackButtonClicked(QTextEdit *textEdit, const QString &slotTitle);
@@ -77,6 +87,7 @@ private slots:
 
     // Page 5 (Personal Center)
     void on_btnSaveProfile5_clicked();
+    void populateProfileEditFields(const LifeBalanceAI::Models::ProfileData &profile);
     void on_btnBackToMain_clicked();
 
     // Page 6 (Payment / Upgrade)
@@ -87,6 +98,7 @@ private slots:
     void onDeepAnalysisTriggered();
     void onDeepAnalysisReady(int userId, const LifeBalanceAI::Models::DeepAnalysisResult &result);
     void onDeepAnalysisError(int userId, const QString &error);
+    void onNicknameGenerated(const QString &nickname);
 
     // Report
     void onGenerateReport();
@@ -103,6 +115,8 @@ private:
     QString getDietString()   const;
     QString getSportString()  const;
     QString getTargetString() const;
+    LifeBalanceAI::Models::ProfileInput profileInputFromSetupPage() const;
+    LifeBalanceAI::Models::ProfileInput profileInputFromProfilePage() const;
 
     // Build a structured user profile string from DB for AI consumption
     QString buildUserProfileString() const;
@@ -117,6 +131,7 @@ private:
     // Show/hide the loading bar in the status bar when AI is generating
     void showLoadingBar(const QString &message = QString());
     void hideLoadingBar();
+    void showHomePlanStatus(const QString &message);
 
     // ── New helpers ───────────────────────────────────────────────
     /** Programmatically add "查看昨日规划" button, all-done label, and 12 adjust buttons */
@@ -142,6 +157,7 @@ private:
     LifeBalanceAI::Services::FreezeCardService *m_freezeCardService = nullptr;
     LifeBalanceAI::Services::DeepAnalysisService *m_deepAnalysisService = nullptr;
     LifeBalanceAI::Services::ReportService *m_reportService = nullptr;
+    LifeBalanceAI::Services::AuthSessionService *m_authSessionService = nullptr;
     Ui::MainWindow *ui;
 
     bool m_isRequestPending = false;
@@ -169,26 +185,31 @@ private:
     void applyWarmVisualPolish();
     void addRememberLoginControl();
     QCheckBox *rememberLoginCheckBox() const;
-    QString currentDeviceId() const;
     void saveAutoLoginSessionIfNeeded(int userId, const QString &role);
     void clearAutoLoginSession();
+    void logoutToLogin();
     bool tryAutoLogin();
-    void handleAuthenticatedUser(int userId, const QString &phone, const QString &role, bool fromAutoLogin);
+    void handleAuthenticatedUser(const LifeBalanceAI::Models::AuthFlowResult &result);
     void showLoginSuccessTransition(const QString &welcomeText, std::function<void()> routeAction);
     void updateGoalCollapseState();
     void animatePageSwitch(int fromIndex, int toIndex, bool forward);
     void positionBottomNav();
     void updateBottomNavVisibility();
     void updateBottomNavVisibility(int pageIndex);
-    BottomNavBar *createAndroidPageNav(int activeIndex, QWidget *parent);
     void handleBottomNavTab(int tab);
+    void navigateTo(AppRoute route, bool animate = true);
     void navigateTo(int toIndex, bool animate = true);
+    AppRoute routeForPageIndex(int pageIndex) const;
+    int pageIndexForRoute(AppRoute route);
+    void syncShellRouteIndexes();
 
     // ── New widgets on page_4 ────────────────────────────────────
     QLabel       *m_lblAllDone        = nullptr;    // "🎉 今日已全部打卡，自律的一天！"
     QPushButton  *m_btnViewYesterday  = nullptr;    // "查看昨日规划"
     QPushButton  *m_btnGoalToggle      = nullptr;
     bool          m_goalExpanded       = false;
+    QString       m_goalText;               // cached goal text
+    QTextEdit    *m_goalContentEdit    = nullptr; // runtime replacement for lblGoalContent (QLabel word-wrap bug)
 
     // 12 "调整规划" buttons (one per slot, same count as feedback buttons)
     QPushButton  *m_btnAdjustTodayMorning   = nullptr;
@@ -207,6 +228,7 @@ private:
     // Internal mapping: list of slot names for iteration
     QList<QPushButton *> m_allAdjustButtons;
     QList<QPushButton *> m_allFeedbackButtons;
+    MobileShellController *m_shellController = nullptr;
 };
 
 #endif // MAINWINDOW_H

@@ -1,4 +1,5 @@
 #include "databasemanager.h"
+#include "services/profileflowservice.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -321,39 +322,7 @@ bool DatabaseManager::createTables()
         // Ignore error - column may already exist
     }
 
-    // Auto-create/repair admin user
-    {
-        QSqlQuery checkQ(m_database);
-        checkQ.prepare(QStringLiteral("SELECT id, role FROM Users WHERE username = 'admin'"));
-        if (checkQ.exec() && checkQ.next()) {
-            // Admin user exists - ensure role is correct
-            int adminId = checkQ.value(0).toInt();
-            QString curRole = checkQ.value(1).toString();
-            if (curRole != QStringLiteral("admin")) {
-                QSqlQuery fixQ(m_database);
-                fixQ.prepare(QStringLiteral("UPDATE Users SET role = 'admin' WHERE id = :uid"));
-                fixQ.bindValue(QStringLiteral(":uid"), adminId);
-                if (fixQ.exec())
-                    qInfo() << "Admin user role fixed to 'admin' (was" << curRole << ")";
-                else
-                    qCritical() << "[DB_FAIL] Failed to fix admin role:" << fixQ.lastError().text();
-            }
-        } else {
-            // Admin user does not exist - create
-            QString salt = generateSalt();
-            QString hashed = hashPassword(QStringLiteral("admin123"), salt);
-            QSqlQuery insQ(m_database);
-            insQ.prepare(QStringLiteral("INSERT INTO Users (username, password, salt, role) VALUES (:uname, :pw, :salt, :role)"));
-            insQ.bindValue(QStringLiteral(":uname"), QStringLiteral("admin"));
-            insQ.bindValue(QStringLiteral(":pw"), hashed);
-            insQ.bindValue(QStringLiteral(":salt"), salt);
-            insQ.bindValue(QStringLiteral(":role"), QStringLiteral("admin"));
-            if (!insQ.exec())
-                qCritical() << "[DB_FAIL] Failed to create admin user:" << insQ.lastError().text();
-            else
-                qInfo() << "Admin user auto-created (username=admin, password=admin123)";
-        }
-    }
+    // Admin user is no longer auto-created; create manually in DB if needed
 
     return true;
 }
@@ -887,6 +856,16 @@ LifeBalanceAI::Models::ProfileData DatabaseManager::getProfile(int userId)
         data.goal     = query.value(5).toString();
         data.allergy  = query.value(6).toString();
 
+        const QString preferencesValue = query.value(7).toString();
+        const auto parsedPrefs =
+            LifeBalanceAI::Services::ProfileFlowService::parsePreferences(preferencesValue);
+        if (!parsedPrefs.dietPref.isEmpty())
+            data.dietPref = parsedPrefs.dietPref;
+        if (!parsedPrefs.sportPref.isEmpty())
+            data.sportPref = parsedPrefs.sportPref;
+        if (!parsedPrefs.goal.isEmpty() && data.goal.isEmpty())
+            data.goal = parsedPrefs.goal;
+
         // Parse dietPref and sportPref from preferences column
         QString prefs = query.value(7).toString();
         QStringList parts = prefs.split(QStringLiteral(" | "));
@@ -1388,6 +1367,19 @@ bool DatabaseManager::deleteUser(int userId)
     query.bindValue(QStringLiteral(":uid"), userId);
     if (!query.exec()) {
         qCritical() << "[DB_FAIL] query=" << query.lastQuery() << " error=" << query.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+bool DatabaseManager::updateNickname(int userId, const QString &nickname)
+{
+    QSqlQuery query(m_database);
+    query.prepare(QStringLiteral("UPDATE Profiles SET nickname = :nk WHERE user_id = :uid"));
+    query.bindValue(QStringLiteral(":nk"), nickname);
+    query.bindValue(QStringLiteral(":uid"), userId);
+    if (!query.exec()) {
+        qCritical() << "[DB_FAIL] updateNickname:" << query.lastError().text();
         return false;
     }
     return true;

@@ -3,7 +3,9 @@
 
 #include <QString>
 #include <QDate>
+#include <QJsonObject>
 #include <QVector>
+#include "approute.h"
 
 namespace LifeBalanceAI {
 namespace Models {
@@ -19,6 +21,16 @@ struct UserInfo {
     QDate   createdAt;
 };
 
+struct AuthFlowResult {
+    bool     ok            = false;
+    int      userId        = -1;
+    QString  phone;
+    QString  role;
+    AppRoute nextRoute     = AppRoute::Login;
+    QString  message;
+    bool     fromAutoLogin = false;
+};
+
 struct ProfileData {
     int     uid      = 0;
     QString nickname;
@@ -32,6 +44,39 @@ struct ProfileData {
     QString sportPref;
 };
 
+enum class ProfileSaveMode {
+    InitialSetup,
+    EditFromProfile,
+    AdminSetup
+};
+
+struct ProfilePreferenceParts {
+    QString dietPref;
+    QString sportPref;
+    QString goal;
+};
+
+struct ProfileInput {
+    QString nickname;
+    QString ageText;
+    QString heightText;
+    QString weightText;
+    QString gender;
+    QString goal;
+    QString allergy;
+    QString dietPref;
+    QString sportPref;
+};
+
+struct ProfileSaveResult {
+    bool        ok               = false;
+    QString     message;
+    AppRoute    nextRoute        = AppRoute::ProfileSetup;
+    ProfileData profile;
+    bool        needsInitialPlan = false;
+    bool        requestNickname  = false;
+};
+
 struct PlanItem {
     int     itemId   = 0;
     int     planId   = 0;
@@ -39,6 +84,27 @@ struct PlanItem {
     QString timeSlot;
     QString content;
     bool    isDone   = false;
+};
+
+struct PlanSlotRef {
+    bool    valid     = false;
+    int     dayOffset = 0;
+    QDate   date;
+    QString slotKey;
+    QString slotTitle;
+};
+
+struct PlanUpdateItem {
+    QDate   date;
+    QString timeSlot;
+    QString content;
+};
+
+struct PlanParseResult {
+    bool    ok = false;
+    QString errorMessage;
+    QString longTermText;
+    QVector<PlanUpdateItem> items;
 };
 
 struct FeedbackData {
@@ -67,6 +133,24 @@ struct DeepAnalysisResult {
     QVector<RecipeItem> recipes;
     QString lazySlot;
     QString lazyAdvice;
+};
+
+struct AiJsonParseResult {
+    bool ok = false;
+    QString errorMessage;
+    QJsonObject object;
+};
+
+struct DeepAnalysisParseResult {
+    bool ok = false;
+    QString errorMessage;
+    DeepAnalysisResult result;
+};
+
+struct ReportSummaryParseResult {
+    bool ok = false;
+    QString errorMessage;
+    QJsonObject summaryObject;
 };
 
 struct ReportData {

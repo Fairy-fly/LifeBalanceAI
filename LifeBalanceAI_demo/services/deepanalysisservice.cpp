@@ -1,10 +1,9 @@
 ﻿#include "deepanalysisservice.h"
 #include "aimanager.h"
 #include "databasemanager.h"
+#include "services/airesponseparser.h"
 #include <QDebug>
-#include <QJsonArray>
 #include <QJsonDocument>
-#include <QJsonObject>
 
 namespace LifeBalanceAI {
 namespace Services {
@@ -69,9 +68,9 @@ Models::DeepAnalysisResult DeepAnalysisService::getLatestAnalysis(int userId)
     auto history = DatabaseManager::instance().getReportHistory(userId);
     for (const auto &r : history) {
         if (r.type == QStringLiteral("deep_analysis") && !r.aiSummary.isEmpty()) {
-            QJsonDocument doc = QJsonDocument::fromJson(r.aiSummary.toUtf8());
-            if (doc.isObject()) {
-                result = parseAnalysisResponse(doc.object());
+            const auto parsed = AiResponseParser::parseDeepAnalysis(r.aiSummary);
+            if (parsed.ok) {
+                result = parsed.result;
                 break;
             }
         }
@@ -90,19 +89,14 @@ void DeepAnalysisService::onAnalysisResponse(const QString &jsonResult)
         return;
     }
 
-    QString cleaned = jsonResult;
-    cleaned.remove(QStringLiteral("`json"));
-    cleaned.remove(QStringLiteral("`"));
-    cleaned = cleaned.trimmed();
-
-    QJsonDocument doc = QJsonDocument::fromJson(cleaned.toUtf8());
-    if (doc.isNull() || !doc.isObject()) {
-        qCritical() << "DeepAnalysisService: Failed to parse AI response";
+    const auto parsed = AiResponseParser::parseDeepAnalysis(jsonResult);
+    if (!parsed.ok) {
+        qCritical() << "DeepAnalysisService: Failed to parse AI response" << parsed.errorMessage;
         emit analysisError(userId, QStringLiteral("AI 返回数据格式异常"));
         return;
     }
 
-    Models::DeepAnalysisResult result = parseAnalysisResponse(doc.object());
+    const auto json = AiResponseParser::parseJsonObject(jsonResult);
 
     // Save to Reports table as a cache
     Models::ReportData report;
@@ -110,35 +104,11 @@ void DeepAnalysisService::onAnalysisResponse(const QString &jsonResult)
     report.type      = QStringLiteral("deep_analysis");
     report.startDate = QDate::currentDate().addDays(-7).toString(QStringLiteral("yyyy-MM-dd"));
     report.endDate   = QDate::currentDate().toString(QStringLiteral("yyyy-MM-dd"));
-    report.aiSummary = QString::fromUtf8(doc.toJson(QJsonDocument::Compact));
+    report.aiSummary = QString::fromUtf8(QJsonDocument(json.object).toJson(QJsonDocument::Compact));
     report.createdAt = QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss"));
     DatabaseManager::instance().saveReport(report);
 
-    emit analysisReady(userId, result);
-}
-
-Models::DeepAnalysisResult DeepAnalysisService::parseAnalysisResponse(const QJsonObject &obj)
-{
-    Models::DeepAnalysisResult result;
-    result.nutritionProtein  = obj[QStringLiteral("nutrition_protein")].toString();
-    result.nutritionCarbs    = obj[QStringLiteral("nutrition_carbs")].toString();
-    result.nutritionFat      = obj[QStringLiteral("nutrition_fat")].toString();
-    result.nutritionAdvice   = obj[QStringLiteral("nutrition_advice")].toString();
-    result.exerciseChange     = obj[QStringLiteral("exercise_change")].toString();
-    result.exerciseConfidence = obj[QStringLiteral("exercise_confidence")].toString();
-    result.lazySlot           = obj[QStringLiteral("lazy_slot")].toString();
-    result.lazyAdvice         = obj[QStringLiteral("lazy_advice")].toString();
-
-    QJsonArray recipes = obj[QStringLiteral("recipes")].toArray();
-    for (const auto &r : recipes) {
-        QJsonObject ro = r.toObject();
-        Models::RecipeItem item;
-        item.name     = ro[QStringLiteral("name")].toString();
-        item.reason   = ro[QStringLiteral("reason")].toString();
-        item.calories = ro[QStringLiteral("calories")].toInt();
-        result.recipes.append(item);
-    }
-    return result;
+    emit analysisReady(userId, parsed.result);
 }
 
 QString DeepAnalysisService::buildAnalysisPrompt(int userId)

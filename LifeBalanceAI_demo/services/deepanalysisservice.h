@@ -2,8 +2,6 @@
 #define DEEPANALYSISSERVICE_H
 
 #include <QObject>
-#include <QJsonDocument>
-#include <QJsonObject>
 #include "models/dto.h"
 
 class AIManager;
@@ -30,7 +28,6 @@ private slots:
     void onAnalysisResponse(const QString &jsonResult);
 
 private:
-    Models::DeepAnalysisResult parseAnalysisResponse(const QJsonObject &obj);
     QString buildAnalysisPrompt(int userId);
 
     int m_pendingUserId = -1;

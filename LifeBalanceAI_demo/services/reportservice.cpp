@@ -1,6 +1,7 @@
 #include "reportservice.h"
 #include "aimanager.h"
 #include "databasemanager.h"
+#include "services/airesponseparser.h"
 
 #include <QCoreApplication>
 #include <QDate>
@@ -15,6 +16,13 @@
 #include <QProcess>
 #include <QStandardPaths>
 #include <QStringList>
+#include <QImage>
+#include <QPainter>
+#include <QFont>
+#include <QFontMetrics>
+#ifdef Q_OS_ANDROID
+#include <QJniObject>
+#endif
 
 namespace LifeBalanceAI {
 namespace Services {
@@ -121,6 +129,130 @@ void ReportService::exportReport(int reportId, const QString &format)
     onImageGenerated(QString());
 }
 
+#ifdef Q_OS_ANDROID
+static QImage renderReportToImage(const QJsonObject &data)
+{
+    const int imgW = 600;
+    const int pad = 24;
+    const int contentW = imgW - pad * 2;
+
+    const QString nickname = data[QStringLiteral("nickname")].toString();
+    const QString startDate = data[QStringLiteral("start_date")].toString();
+    const QString endDate = data[QStringLiteral("end_date")].toString();
+    const QString summary = data[QStringLiteral("ai_summary")].toString();
+    const int age = data[QStringLiteral("age")].toInt();
+    const double height = data[QStringLiteral("height")].toDouble();
+    const double weight = data[QStringLiteral("weight")].toDouble();
+    const QString gender = data[QStringLiteral("gender")].toString();
+
+    // Calculate height needed for summary text
+    QFont bodyFont(QStringLiteral("MiSans"), 11);
+    QFontMetrics fm(bodyFont);
+    QRect textRect = fm.boundingRect(QRect(0, 0, contentW, 10000),
+                                     Qt::TextWordWrap, summary);
+    const int summaryH = textRect.height() + 24;
+
+    const int imgH = 180 + summaryH + 120; // header + summary + scores/footer
+    QImage image(imgW, imgH, QImage::Format_ARGB32);
+    image.fill(Qt::white);
+
+    QPainter p(&image);
+    p.setRenderHint(QPainter::Antialiasing);
+
+    // Title
+    QFont titleFont(QStringLiteral("MiSans Medium"), 18);
+    titleFont.setBold(true);
+    p.setFont(titleFont);
+    p.setPen(QColor(0x1A, 0x1A, 0x1A));
+    p.drawText(QRect(pad, pad, contentW, 30), Qt::AlignLeft | Qt::AlignVCenter,
+               QString::fromUtf8("健康周报")); // 健康周报
+
+    // Divider
+    p.setPen(QColor(0x4C, 0xAF, 0x7F));
+    p.drawLine(pad, pad + 38, imgW - pad, pad + 38);
+
+    // User info
+    QFont infoFont(QStringLiteral("MiSans"), 11);
+    p.setFont(infoFont);
+    p.setPen(QColor(0x66, 0x66, 0x66));
+    QString infoLine = QString::fromUtf8("昵称: ") + nickname
+                     + QString::fromUtf8("  |  年龄: ") + QString::number(age)
+                     + QString::fromUtf8("  |  身高: ") + QString::number(height, 'f', 1) + QStringLiteral("cm")
+                     + QString::fromUtf8("  |  体重: ") + QString::number(weight, 'f', 1) + QStringLiteral("kg");
+    if (!gender.isEmpty())
+        infoLine += QString::fromUtf8("  |  ") + gender;
+    p.drawText(QRect(pad, pad + 46, contentW, 22), Qt::AlignLeft | Qt::AlignVCenter, infoLine);
+
+    // Date range
+    if (!startDate.isEmpty() && !endDate.isEmpty()) {
+        p.drawText(QRect(pad, pad + 70, contentW, 22), Qt::AlignLeft | Qt::AlignVCenter,
+                   startDate + QStringLiteral(" ~ ") + endDate);
+    }
+
+    // Summary
+    int y = pad + 102;
+    p.setFont(bodyFont);
+    p.setPen(QColor(0x33, 0x33, 0x33));
+    p.drawText(QRect(pad, y, contentW, summaryH), Qt::TextWordWrap, summary);
+    y += summaryH + 16;
+
+    // Divider
+    p.setPen(QColor(0xE8, 0xE8, 0xE8));
+    p.drawLine(pad, y, imgW - pad, y);
+    y += 20;
+
+    // Footer
+    QFont footerFont(QStringLiteral("MiSans"), 10);
+    p.setFont(footerFont);
+    p.setPen(QColor(0x99, 0x99, 0x99));
+    p.drawText(QRect(pad, y, contentW, 20), Qt::AlignCenter,
+               QString::fromUtf8("由 LifeBalance AI 生成"));
+
+    p.end();
+    return image;
+}
+
+static bool saveToAndroidPictures(const QString &sourcePath, const QString &fileName)
+{
+    // Save to public Downloads directory (visible in gallery after media scan)
+    const QString downloadsDir = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
+    if (downloadsDir.isEmpty())
+        return false;
+
+    QDir().mkpath(downloadsDir);
+    const QString destPath = downloadsDir + QStringLiteral("/") + fileName;
+    if (!QFile::copy(sourcePath, destPath))
+        return false;
+
+    // Trigger media scanner so the file appears in gallery
+    QJniObject fileObj = QJniObject::callStaticObjectMethod(
+        "java/io/File", "<init>", "(Ljava/lang/String;)V",
+        QJniObject::fromString(destPath).object<jstring>());
+    if (!fileObj.isValid())
+        return true; // file copied, just not scanned
+
+    QJniObject fileUri = QJniObject::callStaticObjectMethod(
+        "android/net/Uri", "fromFile",
+        "(Ljava/io/File;)Landroid/net/Uri;",
+        fileObj.object<jobject>());
+
+    QJniObject intent("android/content/Intent",
+        "(Ljava/lang/String;)V",
+        QJniObject::fromString("android.intent.action.MEDIA_SCANNER_SCAN_FILE").object<jstring>());
+    intent.callObjectMethod("setData",
+        "(Landroid/net/Uri;)Landroid/content/Intent;",
+        fileUri.object<jobject>());
+
+    jobject ctx = QNativeInterface::QAndroidApplication::context();
+    QJniObject context(ctx);
+    context.callMethod<void>("sendBroadcast",
+        "(Landroid/content/Intent;)V",
+        intent.object<jobject>());
+
+    return true;
+}
+#endif
+
 void ReportService::onImageGenerated(const QString &imagePath)
 {
     const int reportId = m_pendingExportReportId;
@@ -130,6 +262,33 @@ void ReportService::onImageGenerated(const QString &imagePath)
         emit exportCompleted(reportId, imagePath);
         return;
     }
+
+#ifdef Q_OS_ANDROID
+    // Use QPainter-based rendering on Android (no Python runtime)
+    const QString cacheDir = QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
+    QDir().mkpath(cacheDir);
+    const QString outputPath = cacheDir + QStringLiteral("/report_%1.png").arg(reportId);
+
+    QJsonDocument doc = QJsonDocument::fromJson(m_pendingExportJson.toUtf8());
+    m_pendingExportJson.clear();
+    if (doc.isObject()) {
+        QImage image = renderReportToImage(doc.object());
+        if (!image.isNull() && image.save(outputPath)) {
+            if (saveToAndroidPictures(outputPath, QStringLiteral("LifeBalance_report_%1.png").arg(reportId))) {
+                const QString downloadsDir = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
+                emit exportCompleted(reportId, downloadsDir + QStringLiteral("/LifeBalance_report_%1.png").arg(reportId));
+            } else {
+                emit reportError(-1, QStringLiteral("导出失败: 无法保存到相册"));
+            }
+        } else {
+            emit reportError(-1, QStringLiteral("导出失败: 无法生成报告图片"));
+        }
+    } else {
+        emit reportError(-1, QStringLiteral("导出失败: 报告数据无效"));
+    }
+    return;
+#else
+    // Desktop: use Python script for high-quality rendering
 
     const QString appDir = QCoreApplication::applicationDirPath();
     const QString outputPath = appDir + QStringLiteral("/report_%1.png").arg(reportId);
@@ -222,6 +381,7 @@ void ReportService::onImageGenerated(const QString &imagePath)
 
     const QString err = QString::fromUtf8(proc.readAllStandardError()).trimmed();
     emit reportError(-1, QStringLiteral("导出失败: ") + (err.isEmpty() ? proc.errorString() : err));
+#endif
 }
 
 QVector<Models::ReportData> ReportService::getReportHistory(int userId)
@@ -242,15 +402,9 @@ void ReportService::onReportAiResponse(const QString &jsonResult)
         return;
     }
 
-    QString cleaned = jsonResult;
-    cleaned.remove(QStringLiteral("```json"));
-    cleaned.remove(QStringLiteral("```"));
-    cleaned.remove(QStringLiteral("`json"));
-    cleaned.remove(QStringLiteral("`"));
-    cleaned = cleaned.trimmed();
-
-    const QJsonDocument doc = QJsonDocument::fromJson(cleaned.toUtf8());
-    if (doc.isNull() || !doc.isObject()) {
+    const auto parsed = AiResponseParser::parseReportSummary(jsonResult);
+    if (!parsed.ok) {
+        qCritical() << "ReportService: Failed to parse AI response" << parsed.errorMessage;
         emit reportError(userId, QStringLiteral("AI 返回数据格式异常"));
         return;
     }
@@ -260,7 +414,7 @@ void ReportService::onReportAiResponse(const QString &jsonResult)
     report.type = m_pendingType;
     report.startDate = QDate::currentDate().addDays(-7).toString(QStringLiteral("yyyy-MM-dd"));
     report.endDate = QDate::currentDate().toString(QStringLiteral("yyyy-MM-dd"));
-    report.aiSummary = QString::fromUtf8(doc.toJson(QJsonDocument::Compact));
+    report.aiSummary = QString::fromUtf8(QJsonDocument(parsed.summaryObject).toJson(QJsonDocument::Compact));
     report.createdAt = QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss"));
 
     if (!DatabaseManager::instance().saveReport(report)) {

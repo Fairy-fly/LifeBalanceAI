@@ -43,6 +43,9 @@ public:
      */
     void generateImage(const QString &prompt, const QString &outputPath);
 
+    /** Generate a food-related random nickname based on user profile */
+    void generateNickname(const QString &userProfile);
+
     // Delete copy/move constructors and assignment operators
     AIManager(const AIManager &) = delete;
     AIManager &operator=(const AIManager &) = delete;
@@ -55,6 +58,7 @@ signals:
     void analysisGenerated(const QString &jsonResult);
     void reportGenerated(const QString &jsonResult);
     void imageGenerated(const QString &imagePath);
+    void nicknameGenerated(const QString &nickname);
     void requestError(const QString &errorMessage);
 
 private:

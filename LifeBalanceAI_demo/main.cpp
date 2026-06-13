@@ -10,6 +10,7 @@
 #include <QTextStream>
 #include <QDir>
 #include <QMessageBox>
+#include <QWindow>
 
 int main(int argc, char *argv[])
 {

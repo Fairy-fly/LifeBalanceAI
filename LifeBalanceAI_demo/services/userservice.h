@@ -25,6 +25,7 @@ public:
     bool deleteUser(int userId);
     bool resetPassword(int userId, const QString &newPassword);
     bool updateUserPhone(int userId, const QString &phone);
+    int getUserIdByPhone(const QString &phone);
 
     // Validation helpers (implemented, returns empty on success, error msg on failure)
     static QString validatePhone(const QString &input);

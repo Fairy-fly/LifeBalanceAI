@@ -51,8 +51,7 @@ static QString loadEnvKey(const QString &name)
         candidates << QDir(appLocalData).filePath(QStringLiteral(".env"));
 
     candidates << QCoreApplication::applicationDirPath() + QStringLiteral("/.env")
-               << QCoreApplication::applicationDirPath() + QStringLiteral("/../../.env")
-               << QStringLiteral(":/config/.env");
+               << QCoreApplication::applicationDirPath() + QStringLiteral("/../../.env");
 
     for (const QString &path : candidates) {
         key = readEnvValue(path, name);
@@ -75,9 +74,29 @@ static const QString &getOpenAiKey()
     return key;
 }
 
-static const QString OPENAI_IMAGE_URL = QStringLiteral("https://api.openai.com/v1/images/generations");
+
 static const QString API_URL = QStringLiteral("https://api.deepseek.com/v1/chat/completions");
 static const QString MODEL_NAME = QStringLiteral("deepseek-chat");
+static const QString OPENAI_IMAGE_URL = QStringLiteral("https://api.openai.com/v1/images/generations");
+void AIManager::generateNickname(const QString &userProfile)
+{
+    const QString systemPrompt = QStringLiteral(
+        "你是一位起名专家。根据用户画像，生成一个2-8个字的中文昵称，"
+        "必须和食物相关，温暖有趣。只输出昵称，不要解释、标点或换行。");
+
+    QJsonArray messages;
+    messages.append(QJsonObject{{QStringLiteral("role"), QStringLiteral("system")},
+                                {QStringLiteral("content"), systemPrompt}});
+    messages.append(QJsonObject{{QStringLiteral("role"), QStringLiteral("user")},
+                                {QStringLiteral("content"), userProfile}});
+
+    QJsonObject body;
+    body[QStringLiteral("model")] = MODEL_NAME;
+    body[QStringLiteral("messages")] = messages;
+
+    sendChatRequest(body, QStringLiteral("nicknameGenerated"));
+}
+
 
 AIManager &AIManager::instance()
 {
@@ -290,6 +309,8 @@ void AIManager::sendChatRequest(const QJsonObject &body, const QString &signalNa
             emit analysisGenerated(QString());
         else if (signalName == QStringLiteral("reportGenerated"))
             emit reportGenerated(QString());
+        else if (signalName == QStringLiteral("nicknameGenerated"))
+            emit nicknameGenerated(QString());
     };
 
     const QByteArray jsonPayload = QJsonDocument(body).toJson(QJsonDocument::Compact);
@@ -392,5 +413,7 @@ void AIManager::sendChatRequest(const QJsonObject &body, const QString &signalNa
             emit analysisGenerated(content);
         else if (signalName == QStringLiteral("reportGenerated"))
             emit reportGenerated(content);
+        else if (signalName == QStringLiteral("nicknameGenerated"))
+            emit nicknameGenerated(content);
     });
 }
