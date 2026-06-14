@@ -10674,6 +10674,7 @@ void MainWindow::onReportReady(int userId, const LifeBalanceAI::Models::ReportDa
 
 
     hideLoadingBar();
+    showReportStatus(uiText("\u5065\u5eb7\u5468\u62a5\u5df2\u751f\u6210\u3002"));
 
 
 

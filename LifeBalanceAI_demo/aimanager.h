@@ -6,6 +6,16 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QJsonObject>
+#include <QStringList>
+
+struct AiKeyStatus
+{
+    bool configured = false;
+    QString keyName = QStringLiteral("DEEPSEEK_API_KEY");
+    QString source;
+    QStringList checkedPaths;
+    QString message;
+};
 
 class AIManager : public QObject
 {
@@ -13,6 +23,10 @@ class AIManager : public QObject
 
 public:
     static AIManager &instance();
+    static AiKeyStatus chatApiKeyStatus();
+    static AiKeyStatus chatApiKeyStatus(const QStringList &envFiles,
+                                        bool includeProcessEnvironment,
+                                        bool includeDefaultPaths);
     static bool hasChatApiKey();
 
     /** Full plan generation (initial creation) */

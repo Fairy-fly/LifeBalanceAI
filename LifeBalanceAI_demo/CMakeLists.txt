@@ -169,6 +169,32 @@ if (NOT ANDROID)
 
     add_test(NAME AiResponseParser COMMAND LifeBalanceAI_airesponse_tests)
 
+    qt_add_executable(LifeBalanceAI_aikeystatus_tests
+        tests/test_aikeystatus.cpp
+        aimanager.cpp
+        aimanager.h
+        services/profileflowservice.cpp
+        services/profileflowservice.h
+        services/userservice.cpp
+        services/userservice.h
+        databasemanager.cpp
+        databasemanager.h
+        models/dto.h
+        approute.h
+    )
+
+    target_include_directories(LifeBalanceAI_aikeystatus_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
+    target_link_libraries(LifeBalanceAI_aikeystatus_tests
+        PRIVATE
+            Qt::Core
+            Qt::Sql
+            Qt::Network
+            Qt::Test
+    )
+
+    add_test(NAME AiKeyStatus COMMAND LifeBalanceAI_aikeystatus_tests)
+
     qt_add_executable(LifeBalanceAI_authflow_tests
         tests/test_authflowservice.cpp
         services/authflowservice.cpp

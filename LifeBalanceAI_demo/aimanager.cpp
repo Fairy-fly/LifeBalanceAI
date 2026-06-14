@@ -21,7 +21,9 @@ static QString readEnvValue(const QString &filePath, const QString &name)
 
     QTextStream stream(&envFile);
     while (!stream.atEnd()) {
-        const QString line = stream.readLine().trimmed();
+        QString line = stream.readLine().trimmed();
+        if (!line.isEmpty() && line.front() == QChar(0xFEFF))
+            line.remove(0, 1);
         if (!line.startsWith(name + QLatin1Char('=')))
             continue;
 
@@ -36,12 +38,16 @@ static QString readEnvValue(const QString &filePath, const QString &name)
     return QString();
 }
 
-static QString loadEnvKey(const QString &name)
-{
-    QString key = QString::fromLocal8Bit(qgetenv(name.toLocal8Bit().constData())).trimmed();
-    if (!key.isEmpty())
-        return key;
+namespace {
 
+struct LoadedEnvKey
+{
+    QString value;
+    AiKeyStatus status;
+};
+
+QStringList defaultEnvCandidates()
+{
     QStringList candidates;
     const QString appData = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
     const QString appLocalData = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
@@ -53,27 +59,62 @@ static QString loadEnvKey(const QString &name)
     candidates << QCoreApplication::applicationDirPath() + QStringLiteral("/.env")
                << QCoreApplication::applicationDirPath() + QStringLiteral("/../../.env");
 
-    for (const QString &path : candidates) {
-        key = readEnvValue(path, name);
-        if (!key.isEmpty())
-            return key;
+    candidates.removeDuplicates();
+    return candidates;
+}
+
+LoadedEnvKey loadEnvKey(const QString &name,
+                        const QStringList &envFiles,
+                        bool includeProcessEnvironment,
+                        bool includeDefaultPaths)
+{
+    LoadedEnvKey loaded;
+    loaded.status.keyName = name;
+
+    if (includeProcessEnvironment) {
+        loaded.status.checkedPaths << QStringLiteral("environment:%1").arg(name);
+        loaded.value = QString::fromLocal8Bit(qgetenv(name.toLocal8Bit().constData())).trimmed();
+        if (!loaded.value.isEmpty()) {
+            loaded.status.configured = true;
+            loaded.status.source = QStringLiteral("environment");
+            loaded.status.message = QObject::tr("AI service key is configured through the process environment.");
+            return loaded;
+        }
     }
 
-    return QString();
+    QStringList candidates = envFiles;
+    if (includeDefaultPaths)
+        candidates << defaultEnvCandidates();
+    candidates.removeDuplicates();
+
+    for (const QString &path : candidates) {
+        loaded.status.checkedPaths << path;
+        loaded.value = readEnvValue(path, name);
+        if (!loaded.value.isEmpty()) {
+            loaded.status.configured = true;
+            loaded.status.source = path;
+            loaded.status.message = QObject::tr("AI service key is configured through a local config file.");
+            return loaded;
+        }
+    }
+
+    loaded.status.configured = false;
+    loaded.status.source = QStringLiteral("not_configured");
+    loaded.status.message = QObject::tr("AI service is not configured. Set DEEPSEEK_API_KEY in a local .env file.");
+    return loaded;
 }
 
-static const QString &getApiKey()
+QString getApiKey()
 {
-    static const QString key = loadEnvKey(QStringLiteral("DEEPSEEK_API_KEY"));
-    return key;
+    return loadEnvKey(QStringLiteral("DEEPSEEK_API_KEY"), {}, true, true).value;
 }
 
-static const QString &getOpenAiKey()
+QString getOpenAiKey()
 {
-    static const QString key = loadEnvKey(QStringLiteral("OPENAI_API_KEY"));
-    return key;
+    return loadEnvKey(QStringLiteral("OPENAI_API_KEY"), {}, true, true).value;
 }
 
+} // namespace
 
 static const QString API_URL = QStringLiteral("https://api.deepseek.com/v1/chat/completions");
 static const QString MODEL_NAME = QStringLiteral("deepseek-chat");
@@ -81,8 +122,10 @@ static const QString OPENAI_IMAGE_URL = QStringLiteral("https://api.openai.com/v
 void AIManager::generateNickname(const QString &userProfile)
 {
     const QString systemPrompt = QStringLiteral(
-        "你是一位起名专家。根据用户画像，生成一个2-8个字的中文昵称，"
-        "必须和食物相关，温暖有趣。只输出昵称，不要解释、标点或换行。");
+        "You are a friendly Chinese nickname writer for a health app. "
+        "Create one warm Simplified Chinese nickname, 2 to 8 Chinese characters, "
+        "related to food, exercise, or healthy living. Return only the nickname, "
+        "with no explanation, punctuation, or line breaks.");
 
     QJsonArray messages;
     messages.append(QJsonObject{{QStringLiteral("role"), QStringLiteral("system")},
@@ -96,7 +139,6 @@ void AIManager::generateNickname(const QString &userProfile)
 
     sendChatRequest(body, QStringLiteral("nicknameGenerated"));
 }
-
 
 AIManager &AIManager::instance()
 {
@@ -112,14 +154,29 @@ AIManager::AIManager(QObject *parent)
 
 AIManager::~AIManager() = default;
 
+AiKeyStatus AIManager::chatApiKeyStatus()
+{
+    return chatApiKeyStatus({}, true, true);
+}
+
+AiKeyStatus AIManager::chatApiKeyStatus(const QStringList &envFiles,
+                                        bool includeProcessEnvironment,
+                                        bool includeDefaultPaths)
+{
+    return loadEnvKey(QStringLiteral("DEEPSEEK_API_KEY"),
+                      envFiles,
+                      includeProcessEnvironment,
+                      includeDefaultPaths).status;
+}
+
 bool AIManager::hasChatApiKey()
 {
-    return !getApiKey().isEmpty();
+    return chatApiKeyStatus().configured;
 }
 
 void AIManager::generateImage(const QString &prompt, const QString &outputPath)
 {
-    const QString &key = getOpenAiKey();
+    const QString key = getOpenAiKey();
     if (key.isEmpty()) {
         qWarning() << "AIManager::generateImage: OPENAI_API_KEY is not set, will fall back to local render.";
         emit imageGenerated(QString());
@@ -192,7 +249,8 @@ void AIManager::sendRequest(const QString &systemPrompt,
                             const QString &userPrompt,
                             const QString &responseSignal)
 {
-    if (getApiKey().isEmpty()) {
+    const QString apiKey = getApiKey();
+    if (apiKey.isEmpty()) {
         qCritical() << "AIManager::sendRequest: DEEPSEEK_API_KEY is not set!";
         if (responseSignal == QStringLiteral("analysisGenerated"))
             emit analysisGenerated(QString());
@@ -202,7 +260,7 @@ void AIManager::sendRequest(const QString &systemPrompt,
             emit planGenerated(QString());
         else if (responseSignal == QStringLiteral("partialUpdateGenerated"))
             emit partialUpdateGenerated(QString());
-        emit requestError(tr("AI 服务未配置 API 密钥，请联系管理员。"));
+        emit requestError(QStringLiteral("AI service is not configured. Please set the DeepSeek API key."));
         return;
     }
 
@@ -218,22 +276,23 @@ void AIManager::sendRequest(const QString &systemPrompt,
 
     sendChatRequest(body, responseSignal);
 }
-
 void AIManager::generatePlan(const QString &userProfile)
 {
     QJsonArray messages;
     messages.append(QJsonObject{
         {QStringLiteral("role"), QStringLiteral("system")},
         {QStringLiteral("content"),
-         QStringLiteral("你是一位专业、克制、可靠的健康规划教练。请根据用户画像生成未来 3 天的详细计划（早中晚餐+运动），"
-                        "以及周、月、年长期目标。输出必须是合法 JSON，不要包含 Markdown、解释文字或代码块标记。"
-                        "字段格式必须严格如下："
-                        "{\"long_term\":{\"week\":\"...\",\"month\":\"...\",\"year\":\"...\"},"
-                        "\"daily\":["
-                        "{\"day\":1,\"breakfast\":\"...\",\"lunch\":\"...\",\"dinner\":\"...\",\"sports\":\"...\"},"
-                        "{\"day\":2,\"breakfast\":\"...\",\"lunch\":\"...\",\"dinner\":\"...\",\"sports\":\"...\"},"
-                        "{\"day\":3,\"breakfast\":\"...\",\"lunch\":\"...\",\"dinner\":\"...\",\"sports\":\"...\"}"
-                        "]}")}
+         QStringLiteral(
+             "You are a careful health planning coach. Generate a detailed 3-day plan "
+             "for the user profile. The content values must be written in Simplified Chinese. "
+             "Return strict JSON only, without Markdown fences or explanations. "
+             "Required schema: "
+             "{\"long_term\":{\"week\":\"...\",\"month\":\"...\",\"year\":\"...\"},"
+             "\"daily\":["
+             "{\"day\":1,\"breakfast\":\"...\",\"lunch\":\"...\",\"dinner\":\"...\",\"sports\":\"...\"},"
+             "{\"day\":2,\"breakfast\":\"...\",\"lunch\":\"...\",\"dinner\":\"...\",\"sports\":\"...\"},"
+             "{\"day\":3,\"breakfast\":\"...\",\"lunch\":\"...\",\"dinner\":\"...\",\"sports\":\"...\"}"
+             "]}")}
     });
     messages.append(QJsonObject{{QStringLiteral("role"), QStringLiteral("user")},
                                 {QStringLiteral("content"), userProfile}});
@@ -244,50 +303,43 @@ void AIManager::generatePlan(const QString &userProfile)
 
     sendChatRequest(body, QStringLiteral("planGenerated"));
 }
-
 void AIManager::partialUpdatePlan(const QString &userProfile,
                                   const QString &currentSlot,
                                   const QString &userRequest,
                                   const QString &existingPlanJson,
                                   int dayOffset)
 {
-    QString slotChinese;
+    QString slotLabel;
     if (currentSlot == QStringLiteral("breakfast"))
-        slotChinese = QStringLiteral("早餐");
+        slotLabel = QStringLiteral("breakfast");
     else if (currentSlot == QStringLiteral("lunch"))
-        slotChinese = QStringLiteral("午餐");
+        slotLabel = QStringLiteral("lunch");
     else if (currentSlot == QStringLiteral("dinner"))
-        slotChinese = QStringLiteral("晚餐");
+        slotLabel = QStringLiteral("dinner");
     else if (currentSlot == QStringLiteral("sports"))
-        slotChinese = QStringLiteral("运动");
+        slotLabel = QStringLiteral("sports");
     else
-        slotChinese = currentSlot;
+        slotLabel = currentSlot;
 
-    const QString dayScope = dayOffset == 0
-        ? QStringLiteral("今天")
-        : (dayOffset == 1 ? QStringLiteral("明天") : QStringLiteral("后天"));
+    const QString dayLabel = dayOffset == 0
+        ? QStringLiteral("today")
+        : (dayOffset == 1 ? QStringLiteral("tomorrow") : QStringLiteral("the day after tomorrow"));
     const int responseDay = dayOffset + 1;
 
     const QString systemPrompt = QString(
-        "你是一位专业的健康规划教练。用户想修改%1【%2】的内容，请把用户输入整理成可执行、自然、简洁的饮食/运动计划。\n"
-        "请遵守以下规则：\n"
-        "1. 已完成（is_done=1）的项目必须保留，不得修改。\n"
-        "2. 已手动调整（is_adjusted=1）的项目必须保留，不得修改。\n"
-        "3. 更新【%2】内容，并根据变化合理微调%1其他未完成时段。\n"
-        "4. 仅调整%1的内容，不得修改其他日期。\n"
-        "5. 禁止修改 long_term 字段。\n"
-        "6. 只输出需要改动的 daily 条目的 JSON 数组。\n"
-        "7. 所有输出条目的 day 必须是 %3。\n"
-        "输出示例：\n"
-        "[{\"day\":%3,\"time_slot\":\"lunch\",\"content\":\"...\"},"
+        "You are a careful health planning coach. The user wants to adjust the %1 item for %2. "
+        "Return strict JSON only. Content values must be written in Simplified Chinese. "
+        "Rules: preserve completed items with is_done=1; preserve manually adjusted items with is_adjusted=1; "
+        "do not modify long_term; only return changed daily items; every returned item must have day=%3. "
+        "Output example: [{\"day\":%3,\"time_slot\":\"lunch\",\"content\":\"...\"},"
         "{\"day\":%3,\"time_slot\":\"dinner\",\"content\":\"...\"}]")
-        .arg(dayScope, slotChinese, QString::number(responseDay));
+        .arg(slotLabel, dayLabel, QString::number(responseDay));
 
     const QString userPrompt = QString(
-        "用户画像：%1\n"
-        "调整要求：%2\n"
-        "当前计划（JSON）：%3\n"
-        "请输出仅包含调整项的 JSON 数组，所有调整项的 day 必须是 %4。")
+        "User profile:\n%1\n"
+        "Adjustment request:\n%2\n"
+        "Current plan JSON:\n%3\n"
+        "Return only a JSON array. All returned items must have day=%4.")
         .arg(userProfile, userRequest, existingPlanJson, QString::number(responseDay));
 
     QJsonArray messages;
@@ -302,7 +354,6 @@ void AIManager::partialUpdatePlan(const QString &userProfile,
 
     sendChatRequest(body, QStringLiteral("partialUpdateGenerated"));
 }
-
 void AIManager::sendChatRequest(const QJsonObject &body, const QString &signalName)
 {
     auto emitEmptyResponse = [this, signalName]() {
@@ -324,10 +375,11 @@ void AIManager::sendChatRequest(const QJsonObject &body, const QString &signalNa
         DatabaseManager::instance().logAiRequest(signalName, promptForLog, response, error);
     };
 
-    if (getApiKey().isEmpty()) {
+    const QString apiKey = getApiKey();
+    if (apiKey.isEmpty()) {
         qCritical() << "AIManager: DEEPSEEK_API_KEY is not set!";
         logAiRequest(QString(), QStringLiteral("DEEPSEEK_API_KEY is not set"));
-        emit requestError(tr("AI 服务未配置 API 密钥，请联系管理员。"));
+        emit requestError(QStringLiteral("AI service is not configured. Please set the DeepSeek API key."));
         emitEmptyResponse();
         return;
     }
@@ -335,7 +387,7 @@ void AIManager::sendChatRequest(const QJsonObject &body, const QString &signalNa
     QNetworkRequest request{QUrl(API_URL)};
     request.setTransferTimeout(30000);
     request.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
-    request.setRawHeader("Authorization", QStringLiteral("Bearer %1").arg(getApiKey()).toUtf8());
+    request.setRawHeader("Authorization", QStringLiteral("Bearer %1").arg(apiKey).toUtf8());
 
     QNetworkReply *reply = m_networkManager->post(request, jsonPayload);
     connect(reply, &QNetworkReply::finished, this,
@@ -344,7 +396,7 @@ void AIManager::sendChatRequest(const QJsonObject &body, const QString &signalNa
 
         if (reply->error() == QNetworkReply::OperationCanceledError
             || reply->error() == QNetworkReply::TimeoutError) {
-            const QString errorMessage = tr("AI 服务请求超时，请稍后重试。");
+            const QString errorMessage = QStringLiteral("AI request timed out. Please try again later.");
             qCritical() << "AIManager: Request timed out.";
             logAiRequest(QString(), errorMessage);
             emit requestError(errorMessage);
@@ -361,11 +413,11 @@ void AIManager::sendChatRequest(const QJsonObject &body, const QString &signalNa
 
             QString errorMessage;
             if (httpStatus == 401)
-                errorMessage = tr("API 密钥无效（401），请检查密钥配置。");
+                errorMessage = QStringLiteral("API key is invalid (401). Please check the DeepSeek key configuration.");
             else if (httpStatus == 429)
-                errorMessage = tr("API 请求过于频繁（429），请稍后重试。");
+                errorMessage = QStringLiteral("API requests are too frequent (429). Please try again later.");
             else
-                errorMessage = tr("网络请求失败：%1").arg(reply->errorString());
+                errorMessage = QStringLiteral("Network request failed: %1").arg(reply->errorString());
 
             logAiRequest(QString::fromUtf8(errorBody), errorMessage);
             emit requestError(errorMessage);
@@ -378,7 +430,7 @@ void AIManager::sendChatRequest(const QJsonObject &body, const QString &signalNa
 
         const QJsonDocument doc = QJsonDocument::fromJson(responseData);
         if (!doc.isObject()) {
-            const QString errorMessage = tr("AI 返回了无效的数据格式，请稍后重试。");
+            const QString errorMessage = QStringLiteral("AI returned an invalid data format. Please try again later.");
             qCritical() << "AIManager: Failed to parse response JSON.";
             logAiRequest(QString::fromUtf8(responseData), errorMessage);
             emit requestError(errorMessage);
@@ -388,7 +440,7 @@ void AIManager::sendChatRequest(const QJsonObject &body, const QString &signalNa
 
         const QJsonArray choices = doc.object()[QStringLiteral("choices")].toArray();
         if (choices.isEmpty()) {
-            const QString errorMessage = tr("AI 未返回有效结果，请稍后重试。");
+            const QString errorMessage = QStringLiteral("AI did not return a valid result. Please try again later.");
             qCritical() << "AIManager: Response contains no choices.";
             logAiRequest(QString::fromUtf8(responseData), errorMessage);
             emit requestError(errorMessage);
@@ -399,7 +451,7 @@ void AIManager::sendChatRequest(const QJsonObject &body, const QString &signalNa
         const QJsonObject messageObj = choices.first().toObject()[QStringLiteral("message")].toObject();
         const QString content = messageObj[QStringLiteral("content")].toString();
         if (content.isEmpty()) {
-            const QString errorMessage = tr("AI 返回了空内容，请稍后重试。");
+            const QString errorMessage = QStringLiteral("AI returned empty content. Please try again later.");
             qCritical() << "AIManager: Assistant content is empty.";
             logAiRequest(QString::fromUtf8(responseData), errorMessage);
             emit requestError(errorMessage);

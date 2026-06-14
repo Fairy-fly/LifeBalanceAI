@@ -68,31 +68,22 @@ void ReportService::generateReport(int userId, const QString &reportType)
     m_pendingType = reportType;
 
     const QString systemPrompt = QStringLiteral(
-        "你是一位专业的健康报告分析师。请根据用户画像、打卡数据和执行情况，"
-        "生成一份简洁、温暖、可行动的健康周报摘要。必须严格输出 JSON 格式，"
-        "不得包含 Markdown 标记。\n\n"
-        "输出格式:\n"
-        "{\n"
-        "  \"summary\": \"总体评价(2-3句话)\",\n"
-        "  \"diet_score\": 饮食评分(1-10的整数),\n"
-        "  \"exercise_score\": 运动评分(1-10的整数),\n"
-        "  \"completion_rate\": 完成率百分比数字,\n"
-        "  \"highlights\": [\"亮点1\", \"亮点2\"],\n"
-        "  \"suggestions\": [\"建议1\", \"建议2\"],\n"
-        "  \"next_week_goal\": \"下周目标建议(一句话)\"\n"
-        "}\n\n"
-        "注意: diet_score 和 exercise_score 必须是 1-10 的整数；"
-        "completion_rate 是百分比数字，例如 85。");
+        "You are a professional health report analyst. Based on the user profile, "
+        "check-in data, and plan completion data, generate a concise, warm, actionable weekly health report. "
+        "Return strict JSON only, without Markdown fences. All text values must be written in Simplified Chinese. "
+        "Required schema: {\"summary\":\"2-3 sentences\",\"diet_score\":1,\"exercise_score\":1,"
+        "\"completion_rate\":85,\"highlights\":[\"...\"],\"suggestions\":[\"...\"],"
+        "\"next_week_goal\":\"one sentence\"}. Scores must be integers from 1 to 10; "
+        "completion_rate must be a numeric percentage.");
 
     const QString userPrompt = buildReportPrompt(userId, reportType);
     if (userPrompt.isEmpty()) {
-        emit reportError(userId, QStringLiteral("无法获取用户数据"));
+        emit reportError(userId, QStringLiteral("Unable to load user data."));
         return;
     }
 
     AIManager::instance().sendRequest(systemPrompt, userPrompt, QStringLiteral("reportGenerated"));
 }
-
 void ReportService::exportReport(int reportId, const QString &format)
 {
     Q_UNUSED(format);
@@ -100,7 +91,7 @@ void ReportService::exportReport(int reportId, const QString &format)
     auto &db = DatabaseManager::instance();
     Models::ReportData report = db.getReportById(reportId);
     if (report.rid <= 0 || report.aiSummary.isEmpty()) {
-        emit reportError(-1, QStringLiteral("报告未找到"));
+        emit reportError(-1, QStringLiteral("Report not found."));
         return;
     }
 
@@ -165,7 +156,7 @@ static QImage renderReportToImage(const QJsonObject &data)
     p.setFont(titleFont);
     p.setPen(QColor(0x1A, 0x1A, 0x1A));
     p.drawText(QRect(pad, pad, contentW, 30), Qt::AlignLeft | Qt::AlignVCenter,
-               QString::fromUtf8("健康周报")); // 健康周报
+               QString::fromUtf8("鍋ュ悍鍛ㄦ姤")); // 鍋ュ悍鍛ㄦ姤
 
     // Divider
     p.setPen(QColor(0x4C, 0xAF, 0x7F));
@@ -175,10 +166,10 @@ static QImage renderReportToImage(const QJsonObject &data)
     QFont infoFont(QStringLiteral("MiSans"), 11);
     p.setFont(infoFont);
     p.setPen(QColor(0x66, 0x66, 0x66));
-    QString infoLine = QString::fromUtf8("昵称: ") + nickname
-                     + QString::fromUtf8("  |  年龄: ") + QString::number(age)
-                     + QString::fromUtf8("  |  身高: ") + QString::number(height, 'f', 1) + QStringLiteral("cm")
-                     + QString::fromUtf8("  |  体重: ") + QString::number(weight, 'f', 1) + QStringLiteral("kg");
+    QString infoLine = QString::fromUtf8("鏄电О: ") + nickname
+                     + QString::fromUtf8("  |  骞撮緞: ") + QString::number(age)
+                     + QString::fromUtf8("  |  韬珮: ") + QString::number(height, 'f', 1) + QStringLiteral("cm")
+                     + QString::fromUtf8("  |  浣撻噸: ") + QString::number(weight, 'f', 1) + QStringLiteral("kg");
     if (!gender.isEmpty())
         infoLine += QString::fromUtf8("  |  ") + gender;
     p.drawText(QRect(pad, pad + 46, contentW, 22), Qt::AlignLeft | Qt::AlignVCenter, infoLine);
@@ -206,7 +197,7 @@ static QImage renderReportToImage(const QJsonObject &data)
     p.setFont(footerFont);
     p.setPen(QColor(0x99, 0x99, 0x99));
     p.drawText(QRect(pad, y, contentW, 20), Qt::AlignCenter,
-               QString::fromUtf8("由 LifeBalance AI 生成"));
+               QString::fromUtf8("鐢?LifeBalance AI 鐢熸垚"));
 
     p.end();
     return image;
@@ -278,13 +269,13 @@ void ReportService::onImageGenerated(const QString &imagePath)
                 const QString downloadsDir = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
                 emit exportCompleted(reportId, downloadsDir + QStringLiteral("/LifeBalance_report_%1.png").arg(reportId));
             } else {
-                emit reportError(-1, QStringLiteral("导出失败: 无法保存到相册"));
+                emit reportError(-1, QStringLiteral("Export failed: unable to save to album."));
             }
         } else {
-            emit reportError(-1, QStringLiteral("导出失败: 无法生成报告图片"));
+            emit reportError(-1, QStringLiteral("Export failed: unable to render report image."));
         }
     } else {
-        emit reportError(-1, QStringLiteral("导出失败: 报告数据无效"));
+        emit reportError(-1, QStringLiteral("Export failed: invalid report data."));
     }
     return;
 #else
@@ -310,7 +301,7 @@ void ReportService::onImageGenerated(const QString &imagePath)
         }
     }
     if (scriptPath.isEmpty()) {
-        emit reportError(-1, QStringLiteral("导出失败: 未找到 export_report.py 脚本"));
+        emit reportError(-1, QStringLiteral("瀵煎嚭澶辫触: 鏈壘鍒?export_report.py 鑴氭湰"));
         return;
     }
 
@@ -342,7 +333,7 @@ void ReportService::onImageGenerated(const QString &imagePath)
         }
     }
     if (pythonExe.isEmpty()) {
-        emit reportError(-1, QStringLiteral("导出失败: 未找到 Python 运行时"));
+        emit reportError(-1, QStringLiteral("Export failed: Python runtime not found."));
         return;
     }
 
@@ -350,7 +341,7 @@ void ReportService::onImageGenerated(const QString &imagePath)
     {
         QFile jf(jsonFile);
         if (!jf.open(QFile::WriteOnly | QFile::Text)) {
-            emit reportError(-1, QStringLiteral("导出失败: 无法写入临时数据文件"));
+            emit reportError(-1, QStringLiteral("瀵煎嚭澶辫触: 鏃犳硶鍐欏叆涓存椂鏁版嵁鏂囦欢"));
             return;
         }
         jf.write(m_pendingExportJson.toUtf8());
@@ -361,7 +352,7 @@ void ReportService::onImageGenerated(const QString &imagePath)
     proc.start(pythonExe, {scriptPath, jsonFile, outputPath, QStringLiteral("png")});
     if (!proc.waitForStarted(5000)) {
         QFile::remove(jsonFile);
-        emit reportError(-1, QStringLiteral("导出失败: 无法启动 Python: ") + proc.errorString());
+        emit reportError(-1, QStringLiteral("瀵煎嚭澶辫触: 鏃犳硶鍚姩 Python: ") + proc.errorString());
         return;
     }
 
@@ -369,7 +360,7 @@ void ReportService::onImageGenerated(const QString &imagePath)
         proc.kill();
         proc.waitForFinished(1000);
         QFile::remove(jsonFile);
-        emit reportError(-1, QStringLiteral("导出超时: Python 脚本未在 30 秒内完成"));
+        emit reportError(-1, QStringLiteral("瀵煎嚭瓒呮椂: Python 鑴氭湰鏈湪 30 绉掑唴瀹屾垚"));
         return;
     }
 
@@ -380,7 +371,7 @@ void ReportService::onImageGenerated(const QString &imagePath)
     }
 
     const QString err = QString::fromUtf8(proc.readAllStandardError()).trimmed();
-    emit reportError(-1, QStringLiteral("导出失败: ") + (err.isEmpty() ? proc.errorString() : err));
+    emit reportError(-1, QStringLiteral("瀵煎嚭澶辫触: ") + (err.isEmpty() ? proc.errorString() : err));
 #endif
 }
 
@@ -398,14 +389,14 @@ void ReportService::onReportAiResponse(const QString &jsonResult)
     m_pendingUserId = -1;
 
     if (jsonResult.isEmpty()) {
-        emit reportError(userId, QStringLiteral("AI 服务超时或 API Key 未配置"));
+        emit reportError(userId, QStringLiteral("AI service timed out or the API key is not configured."));
         return;
     }
 
     const auto parsed = AiResponseParser::parseReportSummary(jsonResult);
     if (!parsed.ok) {
         qCritical() << "ReportService: Failed to parse AI response" << parsed.errorMessage;
-        emit reportError(userId, QStringLiteral("AI 返回数据格式异常"));
+        emit reportError(userId, QStringLiteral("AI returned an invalid report format."));
         return;
     }
 
@@ -418,7 +409,7 @@ void ReportService::onReportAiResponse(const QString &jsonResult)
     report.createdAt = QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss"));
 
     if (!DatabaseManager::instance().saveReport(report)) {
-        emit reportError(userId, QStringLiteral("报告保存失败"));
+        emit reportError(userId, QStringLiteral("鎶ュ憡淇濆瓨澶辫触"));
         return;
     }
 
@@ -455,7 +446,7 @@ QString ReportService::buildReportPrompt(int userId, const QString &reportType)
                 ++doneSlots;
                 ++dayDone;
             }
-            dayItemNames.append(item.content + (item.isDone ? QStringLiteral("(已完成)") : QStringLiteral("(未完成)")));
+            dayItemNames.append(item.content + (item.isDone ? QStringLiteral("(done)") : QStringLiteral("(pending)")));
         }
 
         const QString daySummary = date.toString(QStringLiteral("MM-dd"))
@@ -465,18 +456,18 @@ QString ReportService::buildReportPrompt(int userId, const QString &reportType)
     }
 
     const int completionRate = totalSlots > 0 ? (doneSlots * 100 / totalSlots) : 0;
-    const QString periodLabel = reportType == QStringLiteral("monthly") ? QStringLiteral("月度") : QStringLiteral("周度");
+    const QString periodLabel = reportType == QStringLiteral("monthly") ? QStringLiteral("monthly") : QStringLiteral("weekly");
 
     QString prompt = QStringLiteral(
-        "=== 用户画像 ===\n"
-        "年龄: %1 | 身高: %2 cm | 体重: %3 kg | 性别: %4\n"
-        "目标: %5\n"
-        "饮食偏好: %6\n"
-        "运动偏好: %7\n"
-        "连续打卡: %8 天 | 累计打卡: %9 次\n\n"
-        "=== 近 7 天执行统计 ===\n"
-        "总时段数: %10 | 已完成: %11 | 完成率: %12%%\n\n"
-        "请根据以上数据生成一份 %13 健康报告。")
+        "=== User profile ===\n"
+        "Age: %1 | Height: %2 cm | Weight: %3 kg | Gender: %4\n"
+        "Goal: %5\n"
+        "Diet preference: %6\n"
+        "Exercise preference: %7\n"
+        "Current streak: %8 days | Total check-ins: %9\n\n"
+        "=== Last 7 days execution ===\n"
+        "Total slots: %10 | Completed slots: %11 | Completion rate: %12%%\n\n"
+        "Generate one %13 health report from the data above. Return only JSON.")
         .arg(QString::number(profile.age),
              QString::number(profile.height, 'f', 1),
              QString::number(profile.weight, 'f', 1),
@@ -492,7 +483,7 @@ QString ReportService::buildReportPrompt(int userId, const QString &reportType)
              periodLabel);
 
     if (!daySummaries.isEmpty()) {
-        prompt += QStringLiteral("\n=== 每日详情 ===\n");
+        prompt += QStringLiteral("\n=== 姣忔棩璇︽儏 ===\n");
         for (const QString &daySummary : daySummaries)
             prompt += daySummary + QStringLiteral("\n");
     }
