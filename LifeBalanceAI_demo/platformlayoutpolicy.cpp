@@ -1,6 +1,7 @@
 #include "platformlayoutpolicy.h"
 
 #include <QAbstractScrollArea>
+#include <QCoreApplication>
 #include <QGuiApplication>
 #include <QLabel>
 #include <QPlainTextEdit>
@@ -15,8 +16,56 @@
 #include <QTextEdit>
 #include <QWidget>
 
+#ifdef Q_OS_ANDROID
+#include <QJniObject>
+#include <QtCore/qcoreapplication_platform.h>
+#endif
+
 namespace LifeBalanceAI {
 namespace Ui {
+
+namespace {
+
+#ifdef Q_OS_ANDROID
+int androidWindowBottomInset()
+{
+    if (!QNativeInterface::QAndroidApplication::isActivityContext())
+        return 0;
+
+    QJniObject activity(QNativeInterface::QAndroidApplication::context());
+    if (!activity.isValid())
+        return 0;
+
+    QJniObject window = activity.callObjectMethod("getWindow", "()Landroid/view/Window;");
+    if (!window.isValid())
+        return 0;
+
+    QJniObject decorView = window.callObjectMethod("getDecorView", "()Landroid/view/View;");
+    if (!decorView.isValid())
+        return 0;
+
+    QJniObject insets = decorView.callObjectMethod("getRootWindowInsets", "()Landroid/view/WindowInsets;");
+    if (!insets.isValid())
+        return 0;
+
+    const int stableBottom = insets.callMethod<jint>("getStableInsetBottom", "()I");
+    const int systemBottom = insets.callMethod<jint>("getSystemWindowInsetBottom", "()I");
+    return qMax(stableBottom, systemBottom);
+}
+#endif
+
+int screenGeometryBottomInset()
+{
+    QScreen *screen = QGuiApplication::primaryScreen();
+    if (!screen)
+        return 0;
+
+    const QRect geometry = screen->geometry();
+    const QRect available = screen->availableGeometry();
+    return qMax(0, geometry.y() + geometry.height() - (available.y() + available.height()));
+}
+
+} // namespace
 
 bool PlatformLayoutPolicy::isMobileRuntime()
 {
@@ -29,26 +78,50 @@ bool PlatformLayoutPolicy::isMobileRuntime()
 
 QSize PlatformLayoutPolicy::availableScreenSize()
 {
+#ifdef Q_OS_ANDROID
+    if (QScreen *screen = QGuiApplication::primaryScreen())
+        return screen->geometry().size();
+#else
     if (QScreen *screen = QGuiApplication::primaryScreen())
         return screen->availableGeometry().size();
-    return {};
-}
-
-int PlatformLayoutPolicy::bottomNavHeight()
-{
-#ifdef Q_OS_ANDROID
-    return 64 + bottomSafeAreaInset();
-#else
-    return 60;
 #endif
+    return {};
 }
 
 int PlatformLayoutPolicy::bottomSafeAreaInset()
 {
 #ifdef Q_OS_ANDROID
-    return 48;
+    int inset = androidWindowBottomInset();
+    if (inset <= 0)
+        inset = screenGeometryBottomInset();
+    if (inset <= 0)
+        inset = 48;
+    return qBound(0, inset, 240);
 #else
     return 0;
+#endif
+}
+
+int PlatformLayoutPolicy::bottomNavContentHeight()
+{
+#ifdef Q_OS_ANDROID
+    return 64;
+#else
+    return 60;
+#endif
+}
+
+int PlatformLayoutPolicy::bottomNavHeight()
+{
+    return bottomNavContentHeight() + bottomSafeAreaInset();
+}
+
+int PlatformLayoutPolicy::bottomNavPagePadding()
+{
+#ifdef Q_OS_ANDROID
+    return bottomNavHeight() + 12;
+#else
+    return bottomNavHeight();
 #endif
 }
 

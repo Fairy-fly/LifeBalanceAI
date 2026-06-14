@@ -22,8 +22,7 @@ BottomNavBar::BottomNavBar(QWidget *parent)
 void BottomNavBar::setupUi()
 {
 #ifdef Q_OS_ANDROID
-    const int bottomInset = LifeBalanceAI::Ui::PlatformLayoutPolicy::bottomSafeAreaInset();
-    setFixedHeight(LifeBalanceAI::Ui::PlatformLayoutPolicy::bottomNavHeight());
+    setFixedHeight(LifeBalanceAI::Ui::PlatformLayoutPolicy::bottomNavContentHeight());
 #else
     setFixedHeight(66);
 #endif
@@ -45,7 +44,7 @@ void BottomNavBar::setupUi()
 
     m_layout = new QHBoxLayout(this);
 #ifdef Q_OS_ANDROID
-    m_layout->setContentsMargins(6, 4, 6, 8 + bottomInset);
+    m_layout->setContentsMargins(6, 4, 6, 8);
     m_layout->setSpacing(2);
 #else
     m_layout->setContentsMargins(8, 6, 8, 8);
@@ -60,6 +59,30 @@ void BottomNavBar::setupUi()
             m_activePill->hide();
         updateActiveState(m_currentIndex);
     });
+
+#ifdef Q_OS_ANDROID
+    setBottomSafeAreaInset(LifeBalanceAI::Ui::PlatformLayoutPolicy::bottomSafeAreaInset());
+#endif
+}
+
+void BottomNavBar::setBottomSafeAreaInset(int inset)
+{
+#ifdef Q_OS_ANDROID
+    const int normalizedInset = qMax(0, inset);
+    const int desiredHeight = LifeBalanceAI::Ui::PlatformLayoutPolicy::bottomNavContentHeight()
+                              + normalizedInset;
+    if (m_bottomSafeAreaInset == normalizedInset && height() == desiredHeight)
+        return;
+
+    m_bottomSafeAreaInset = normalizedInset;
+    setFixedHeight(desiredHeight);
+    if (m_layout)
+        m_layout->setContentsMargins(6, 4, 6, 8 + m_bottomSafeAreaInset);
+    updateGeometry();
+    updateActiveState(m_currentIndex);
+#else
+    Q_UNUSED(inset);
+#endif
 }
 
 BottomNavBar::NavItem BottomNavBar::addNavItem(int index)

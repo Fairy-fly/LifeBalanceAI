@@ -2058,7 +2058,7 @@ connect(m_deepAnalysisService, &LifeBalanceAI::Services::DeepAnalysisService::an
 #ifdef Q_OS_ANDROID
     QTimer::singleShot(0, this, [this]() {
         if (QScreen *screen = QGuiApplication::primaryScreen())
-            resize(screen->availableGeometry().size());
+            resize(screen->geometry().size());
         relaxAndroidWidthConstraints(this);
         if (centralWidget() && centralWidget()->layout())
             centralWidget()->layout()->invalidate();
@@ -2693,7 +2693,7 @@ void MainWindow::applyWarmVisualPolish()
 #ifdef Q_OS_ANDROID
     setMinimumSize(0, 0);
     if (QScreen *screen = QGuiApplication::primaryScreen())
-        resize(screen->availableGeometry().size());
+        resize(screen->geometry().size());
     if (centralWidget()) {
         centralWidget()->setMinimumSize(0, 0);
         centralWidget()->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
@@ -3284,6 +3284,9 @@ void MainWindow::applyWarmVisualPolish()
             disclaimer->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
 #endif
             contentLayout->addWidget(disclaimer);
+#ifdef Q_OS_ANDROID
+            contentLayout->addSpacing(LifeBalanceAI::Ui::PlatformLayoutPolicy::bottomNavPagePadding());
+#endif
 
             auto *scrollArea = new QScrollArea(tabPage);
             scrollArea->setObjectName(QStringLiteral("planScrollArea"));
@@ -3513,8 +3516,8 @@ QScrollArea *goalScroll = ui->frameGoal->findChild<QScrollArea *>(QStringLiteral
     auto homeTabTargetHeight = [this, targetFrameH]() {
         int viewportH = height();
         if (QScreen *screen = QGuiApplication::primaryScreen())
-            viewportH = viewportH > 0 ? qMin(viewportH, screen->availableGeometry().height())
-                                      : screen->availableGeometry().height();
+            viewportH = viewportH > 0 ? qMin(viewportH, screen->geometry().height())
+                                      : screen->geometry().height();
         if (centralWidget() && centralWidget()->height() > 0)
             viewportH = qMin(viewportH, centralWidget()->height());
         const int navH = (m_bottomNav && m_bottomNav->isVisible())
@@ -10025,7 +10028,7 @@ int MainWindow::setupAnalysisPage()
 
 
 #ifdef Q_OS_ANDROID
-        vlay->addSpacing(LifeBalanceAI::Ui::PlatformLayoutPolicy::bottomNavHeight());
+        vlay->addSpacing(LifeBalanceAI::Ui::PlatformLayoutPolicy::bottomNavPagePadding());
 #else
         vlay->addStretch();
 #endif
@@ -10141,7 +10144,7 @@ int MainWindow::setupAnalysisPage()
 
 
 #ifdef Q_OS_ANDROID
-        vlay->addSpacing(LifeBalanceAI::Ui::PlatformLayoutPolicy::bottomNavHeight());
+        vlay->addSpacing(LifeBalanceAI::Ui::PlatformLayoutPolicy::bottomNavPagePadding());
 #else
         vlay->addStretch();
 #endif
@@ -10534,7 +10537,7 @@ int MainWindow::setupReportPage()
 
 
 #ifdef Q_OS_ANDROID
-    vlay->addSpacing(96);
+    vlay->addSpacing(LifeBalanceAI::Ui::PlatformLayoutPolicy::bottomNavPagePadding());
 #else
     vlay->addStretch();
 #endif

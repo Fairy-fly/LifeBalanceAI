@@ -16,6 +16,7 @@ public:
 
     void setCurrentIndex(int index);
     int currentIndex() const { return m_currentIndex; }
+    void setBottomSafeAreaInset(int inset);
 
 signals:
     void currentChanged(int index);
@@ -42,6 +43,7 @@ private:
     QWidget *m_activePill = nullptr;
     QList<NavItem> m_items;
     int m_currentIndex = 0;
+    int m_bottomSafeAreaInset = 0;
     QString m_activeColor = "#2D7A5E";
     QString m_inactiveColor = "#999999";
 };
