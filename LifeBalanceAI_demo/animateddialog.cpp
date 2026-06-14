@@ -1,5 +1,6 @@
 #include "animateddialog.h"
 #include "designtokens.h"
+#include "platformlayoutpolicy.h"
 
 #include <QApplication>
 #include <QGuiApplication>
@@ -23,6 +24,10 @@ void repolish(QWidget *widget)
 
 void centerOnParent(QWidget *widget)
 {
+#ifdef Q_OS_ANDROID
+    LifeBalanceAI::Ui::PlatformLayoutPolicy::centerWidgetOnSafeArea(widget);
+    return;
+#else
     QWidget *parent = widget->parentWidget();
     QRect parentRect = parent ? parent->geometry() : QGuiApplication::primaryScreen()->geometry();
     QPoint topLeft = parent ? parent->mapToGlobal(QPoint(0, 0)) : parentRect.topLeft();
@@ -30,6 +35,7 @@ void centerOnParent(QWidget *widget)
     int x = topLeft.x() + (parentRect.width() - widget->width()) / 2;
     int y = topLeft.y() + (parentRect.height() - widget->height()) / 2;
     widget->move(x, y);
+#endif
 }
 
 } // namespace

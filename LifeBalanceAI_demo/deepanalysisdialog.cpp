@@ -1,4 +1,5 @@
 #include "deepanalysisdialog.h"
+#include "platformlayoutpolicy.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -34,9 +35,11 @@ void DeepAnalysisDialog::setupUi()
         "}"
     ));
 #ifdef Q_OS_ANDROID
-    const int screenW = QGuiApplication::primaryScreen()->availableGeometry().width();
-    setMinimumSize(qMin(screenW - 36, 540), 400);
-    resize(qMin(screenW - 24, 540), 680);
+    const QRect available = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogAvailableRect();
+    const int dialogWidth = qMax(300, qMin(available.width(), 540));
+    const int dialogHeight = qMax(420, qMin(available.height(), 680));
+    setMinimumSize(qMin(dialogWidth, 540), qMin(dialogHeight, 520));
+    resize(dialogWidth, dialogHeight);
 #else
     setMinimumSize(480, 600);
     resize(520, 680);
@@ -44,8 +47,12 @@ void DeepAnalysisDialog::setupUi()
 
     // Center on screen (Qt dialogs don't always auto-center on Android)
     {
+#ifdef Q_OS_ANDROID
+        LifeBalanceAI::Ui::PlatformLayoutPolicy::centerWidgetOnSafeArea(this);
+#else
         const QRect avail = QGuiApplication::primaryScreen()->availableGeometry();
         move(avail.center() - rect().center());
+#endif
     }
 
     auto *mainLayout = new QVBoxLayout(this);

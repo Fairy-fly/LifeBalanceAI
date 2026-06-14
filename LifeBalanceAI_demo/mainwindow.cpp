@@ -8363,11 +8363,9 @@ void MainWindow::onViewYesterdayClicked()
     reviewDialog.setAttribute(Qt::WA_StyledBackground, true);
 
 #ifdef Q_OS_ANDROID
-    QRect available(0, 0, 390, 760);
-    if (QScreen *screen = QGuiApplication::primaryScreen())
-        available = screen->availableGeometry();
-    reviewDialog.setFixedSize(qMax(280, qMin(available.width() - 72, 340)),
-                              qMax(360, qMin(available.height() - 320, 460)));
+    const QRect available = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogAvailableRect();
+    reviewDialog.setFixedSize(qMax(280, qMin(available.width() - 36, 340)),
+                              qMax(360, qMin(available.height() - 80, 460)));
 #else
     reviewDialog.resize(460, 520);
     reviewDialog.setMinimumSize(420, 440);
@@ -8412,6 +8410,9 @@ void MainWindow::onViewYesterdayClicked()
         "padding:10px;color:#333333;font-size:14px;line-height:1.6;}"
     ));
 
+#ifdef Q_OS_ANDROID
+    LifeBalanceAI::Ui::PlatformLayoutPolicy::centerWidgetOnSafeArea(&reviewDialog);
+#endif
     reviewDialog.exec();
 
 
@@ -9582,8 +9583,9 @@ void MainWindow::showReportHistory()
         "}"
     ));
 #ifdef Q_OS_ANDROID
-    const int screenW = QGuiApplication::primaryScreen()->availableGeometry().width();
-    picker.setMinimumSize(qMin(screenW - 36, 430), 420);
+    const QRect pickerAvailable = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogAvailableRect();
+    picker.setMinimumSize(qMax(300, qMin(pickerAvailable.width(), 430)),
+                          qMax(360, qMin(pickerAvailable.height(), 520)));
 #else
     picker.setMinimumSize(430, 420);
 #endif
@@ -9624,9 +9626,15 @@ void MainWindow::showReportHistory()
 
     // Center on screen (layout is now fully built)
     {
+#ifdef Q_OS_ANDROID
+        const QRect avail = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogAvailableRect();
+        picker.resize(picker.sizeHint().expandedTo(picker.minimumSize()).boundedTo(avail.size()));
+        LifeBalanceAI::Ui::PlatformLayoutPolicy::centerWidgetOnSafeArea(&picker);
+#else
         const QRect avail = QGuiApplication::primaryScreen()->availableGeometry();
         picker.resize(picker.sizeHint());
         picker.move(avail.center() - picker.rect().center());
+#endif
     }
 
     if (picker.exec() != QDialog::Accepted)
@@ -9759,8 +9767,9 @@ void MainWindow::showReportHistory()
     ));
 #ifdef Q_OS_ANDROID
     {
-        const int scrW = QGuiApplication::primaryScreen()->availableGeometry().width();
-        detail.setMinimumSize(qMin(scrW - 36, 460), 520);
+        const QRect detailAvailable = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogAvailableRect();
+        detail.setMinimumSize(qMax(300, qMin(detailAvailable.width(), 460)),
+                              qMax(420, qMin(detailAvailable.height(), 560)));
     }
 #else
     detail.setMinimumSize(460, 520);
@@ -9807,9 +9816,15 @@ void MainWindow::showReportHistory()
 
     // Center on screen (layout is now fully built)
     {
+#ifdef Q_OS_ANDROID
+        const QRect avail = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogAvailableRect();
+        detail.resize(detail.sizeHint().expandedTo(detail.minimumSize()).boundedTo(avail.size()));
+        LifeBalanceAI::Ui::PlatformLayoutPolicy::centerWidgetOnSafeArea(&detail);
+#else
         const QRect avail = QGuiApplication::primaryScreen()->availableGeometry();
         detail.resize(detail.sizeHint());
         detail.move(avail.center() - detail.rect().center());
+#endif
     }
 
     if (detail.exec() == QDialog::Accepted && action == 1)

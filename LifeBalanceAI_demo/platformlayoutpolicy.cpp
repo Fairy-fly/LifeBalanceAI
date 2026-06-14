@@ -52,7 +52,56 @@ int androidWindowBottomInset()
     const int systemBottom = insets.callMethod<jint>("getSystemWindowInsetBottom", "()I");
     return qMax(stableBottom, systemBottom);
 }
+
+int androidWindowTopInset()
+{
+    if (!QNativeInterface::QAndroidApplication::isActivityContext())
+        return 0;
+
+    QJniObject activity(QNativeInterface::QAndroidApplication::context());
+    if (!activity.isValid())
+        return 0;
+
+    QJniObject window = activity.callObjectMethod("getWindow", "()Landroid/view/Window;");
+    if (!window.isValid())
+        return 0;
+
+    QJniObject decorView = window.callObjectMethod("getDecorView", "()Landroid/view/View;");
+    if (!decorView.isValid())
+        return 0;
+
+    QJniObject insets = decorView.callObjectMethod("getRootWindowInsets", "()Landroid/view/WindowInsets;");
+    if (!insets.isValid())
+        return 0;
+
+    const int stableTop = insets.callMethod<jint>("getStableInsetTop", "()I");
+    const int systemTop = insets.callMethod<jint>("getSystemWindowInsetTop", "()I");
+    return qMax(stableTop, systemTop);
+}
 #endif
+
+QRect screenGeometryRect()
+{
+    QScreen *screen = QGuiApplication::primaryScreen();
+    if (!screen)
+        return QRect(0, 0, 390, 760);
+#ifdef Q_OS_ANDROID
+    return screen->geometry();
+#else
+    return screen->availableGeometry();
+#endif
+}
+
+int screenGeometryTopInset()
+{
+    QScreen *screen = QGuiApplication::primaryScreen();
+    if (!screen)
+        return 0;
+
+    const QRect geometry = screen->geometry();
+    const QRect available = screen->availableGeometry();
+    return qMax(0, available.y() - geometry.y());
+}
 
 int screenGeometryBottomInset()
 {
@@ -63,6 +112,18 @@ int screenGeometryBottomInset()
     const QRect geometry = screen->geometry();
     const QRect available = screen->availableGeometry();
     return qMax(0, geometry.y() + geometry.height() - (available.y() + available.height()));
+}
+
+int topSafeAreaInset()
+{
+#ifdef Q_OS_ANDROID
+    int inset = androidWindowTopInset();
+    if (inset <= 0)
+        inset = screenGeometryTopInset();
+    return qBound(0, inset, 180);
+#else
+    return 0;
+#endif
 }
 
 } // namespace
@@ -78,14 +139,49 @@ bool PlatformLayoutPolicy::isMobileRuntime()
 
 QSize PlatformLayoutPolicy::availableScreenSize()
 {
+    return screenGeometryRect().size();
+}
+
+QRect PlatformLayoutPolicy::safeContentRect(int margin)
+{
+    QRect rect = screenGeometryRect();
+    const int safeMargin = qMax(0, margin);
 #ifdef Q_OS_ANDROID
-    if (QScreen *screen = QGuiApplication::primaryScreen())
-        return screen->geometry().size();
+    rect.adjust(safeMargin,
+                topSafeAreaInset() + safeMargin,
+                -safeMargin,
+                -(bottomSafeAreaInset() + safeMargin));
 #else
-    if (QScreen *screen = QGuiApplication::primaryScreen())
-        return screen->availableGeometry().size();
+    rect.adjust(safeMargin, safeMargin, -safeMargin, -safeMargin);
 #endif
-    return {};
+    if (rect.width() <= 0 || rect.height() <= 0)
+        return screenGeometryRect();
+    return rect;
+}
+
+QRect PlatformLayoutPolicy::dialogAvailableRect(int margin)
+{
+    return safeContentRect(margin);
+}
+
+void PlatformLayoutPolicy::centerWidgetOnSafeArea(QWidget *widget, int margin)
+{
+    if (!widget)
+        return;
+
+    QRect available = dialogAvailableRect(margin);
+    if (widget->width() <= 0 || widget->height() <= 0)
+        widget->adjustSize();
+
+    QSize size = widget->size();
+    if (size.width() > available.width() || size.height() > available.height()) {
+        size.setWidth(qMin(size.width(), available.width()));
+        size.setHeight(qMin(size.height(), available.height()));
+        widget->resize(size);
+    }
+
+    widget->move(available.x() + (available.width() - widget->width()) / 2,
+                 available.y() + (available.height() - widget->height()) / 2);
 }
 
 int PlatformLayoutPolicy::bottomSafeAreaInset()

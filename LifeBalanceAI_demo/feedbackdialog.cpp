@@ -1,4 +1,5 @@
 #include "feedbackdialog.h"
+#include "platformlayoutpolicy.h"
 
 #include <QFileDialog>
 #include <QGuiApplication>
@@ -38,14 +39,13 @@ void FeedbackDialog::setupUi(const QString &slotTitle, const QString &initialTex
         "border-radius:8px;color:#999999;font-size:13px;}"));
 
 #ifdef Q_OS_ANDROID
-    QRect available(0, 0, 390, 760);
-    if (QScreen *screen = QGuiApplication::primaryScreen())
-        available = screen->availableGeometry();
+    const QRect available = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogAvailableRect();
 
-    const int dialogWidth = qMax(280, qMin(available.width() - 72, 324));
-    const int dialogHeight = qMax(316, qMin(available.height() - 340, 348));
+    const int dialogWidth = qMax(280, qMin(available.width() - 36, 340));
+    const int dialogHeight = qMax(316, qMin(available.height() - 96, 420));
     setMinimumSize(0, 0);
     setFixedSize(dialogWidth, dialogHeight);
+    LifeBalanceAI::Ui::PlatformLayoutPolicy::centerWidgetOnSafeArea(this);
 #else
     setMinimumSize(380, 380);
     resize(420, 430);
