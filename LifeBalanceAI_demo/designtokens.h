@@ -77,7 +77,7 @@ inline QString borderStrong() { return color("#D9D9D9"); }
 inline QString divider() { return borderLight(); }
 inline QString danger() { return warning(); }
 
-inline QString dietColor() { return color("#FF6B6B"); }
+inline QString dietColor() { return color("#E07B5A"); }
 inline QString exerciseColor() { return color("#4ECDC4"); }
 inline QString sleepColor() { return color("#6C5CE7"); }
 inline QString mindfulnessColor() { return color("#A29BFE"); }
@@ -96,10 +96,10 @@ inline QString infoLight() { return blueLight(); }
 inline QString infoLighter() { return blueSoft(); }
 
 // Health dimension extended palette
-inline QString dietDark() { return color("#D63031"); }
-inline QString dietLight() { return color("#FF8C92"); }
-inline QString dietLighter() { return color("#FFB3BA"); }
-inline QString dietLightest() { return color("#FFF0F1"); }
+inline QString dietDark() { return color("#C05A3A"); }
+inline QString dietLight() { return color("#F0A090"); }
+inline QString dietLighter() { return color("#F5C8B8"); }
+inline QString dietLightest() { return color("#FFF5F2"); }
 
 inline QString exerciseDark() { return color("#00A896"); }
 inline QString exerciseLight() { return color("#76D7D7"); }

@@ -8,6 +8,12 @@
 #include <QTableWidget>
 #include <QHeaderView>
 #include <QFont>
+#include <QGuiApplication>
+#include <QScreen>
+#ifdef Q_OS_ANDROID
+#include <QScroller>
+#include <QScrollerProperties>
+#endif
 
 DeepAnalysisDialog::DeepAnalysisDialog(QWidget *parent)
     : QDialog(parent)
@@ -18,8 +24,29 @@ DeepAnalysisDialog::DeepAnalysisDialog(QWidget *parent)
 void DeepAnalysisDialog::setupUi()
 {
     setWindowTitle(tr("AI 深度分析报告"));
+    setObjectName(QStringLiteral("analysisDialog"));
+    setAttribute(Qt::WA_StyledBackground, true);
+    setStyleSheet(QStringLiteral(
+        "#analysisDialog{"
+        "  background:#FFFFFF;"
+        "  border:2px solid #4CAF7F;"
+        "  border-radius:8px;"
+        "}"
+    ));
+#ifdef Q_OS_ANDROID
+    const int screenW = QGuiApplication::primaryScreen()->availableGeometry().width();
+    setMinimumSize(qMin(screenW - 36, 540), 400);
+    resize(qMin(screenW - 24, 540), 680);
+#else
     setMinimumSize(480, 600);
     resize(520, 680);
+#endif
+
+    // Center on screen (Qt dialogs don't always auto-center on Android)
+    {
+        const QRect avail = QGuiApplication::primaryScreen()->availableGeometry();
+        move(avail.center() - rect().center());
+    }
 
     auto *mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(18, 18, 18, 18);
@@ -39,6 +66,24 @@ void DeepAnalysisDialog::setupUi()
     m_scrollArea = new QScrollArea(this);
     m_scrollArea->setWidgetResizable(true);
     m_scrollArea->setFrameShape(QFrame::NoFrame);
+#ifdef Q_OS_ANDROID
+    if (m_scrollArea->viewport()) {
+        m_scrollArea->viewport()->setAttribute(Qt::WA_AcceptTouchEvents, true);
+        QScroller::grabGesture(m_scrollArea->viewport(), QScroller::TouchGesture);
+        QScroller *s = QScroller::scroller(m_scrollArea->viewport());
+        QScrollerProperties sp = s->scrollerProperties();
+        sp.setScrollMetric(QScrollerProperties::VerticalOvershootPolicy,
+                           QScrollerProperties::OvershootAlwaysOff);
+        sp.setScrollMetric(QScrollerProperties::HorizontalOvershootPolicy,
+                           QScrollerProperties::OvershootAlwaysOff);
+        sp.setScrollMetric(QScrollerProperties::DecelerationFactor, 0.8);
+        sp.setScrollMetric(QScrollerProperties::MaximumVelocity, 0.3);
+        sp.setScrollMetric(QScrollerProperties::DragStartDistance, 0.005);
+        sp.setScrollMetric(QScrollerProperties::FrameRate,
+                           QScrollerProperties::Fps60);
+        s->setScrollerProperties(sp);
+    }
+#endif
 
     m_contentWidget = new QWidget;
     m_contentWidget->setLayout(new QVBoxLayout);

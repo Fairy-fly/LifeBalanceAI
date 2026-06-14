@@ -341,20 +341,22 @@ QGroupBox::title {
 }
 
 QGroupBox[class="planCard"] {
-    margin-top: 14px;
-    padding: 4px 10px 6px 10px;
+    margin-top: 16px;
+    padding: 2px 8px 4px 8px;
     background: #FEFEFE;
 }
 
 QGroupBox[class="planCard"]::title {
     left: 18px;
     top: 1px;
-    padding: 1px 11px 2px 11px;
+    padding: 1px 12px 2px 12px;
     border: 1px solid #E8E8E8;
     border-radius: 8px;
     background: #FFFFFF;
     color: #2D7A5E;
-    font-size: 15px;
+    font-size: 13px;
+    font-family: "MiSans Medium", "MiSans", "Noto Sans SC", "Microsoft YaHei UI", sans-serif;
+    font-weight: 500;
 }
 
 QFrame#frameGoal {
@@ -438,8 +440,8 @@ QPlainTextEdit {
 }
 
 QTextEdit[class="planText"] {
-    min-height: 58px;
-    max-height: 58px;
+    min-height: 76px;
+    max-height: 80px;
     padding: 5px 8px;
     font-size: 13px;
     font-family: "MiSans", "MiSans-Regular", "MiSans Regular", "Noto Sans SC", "Microsoft YaHei UI", "PingFang SC", sans-serif;

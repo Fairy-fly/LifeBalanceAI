@@ -50,44 +50,44 @@ void SideDrawer::addHeader(const QString &nickname, const QString &role)
     header->setObjectName(QStringLiteral("drawerHeader"));
     header->setStyleSheet(QStringLiteral("#drawerHeader{background:%1;border-bottom:1px solid %2;}")
                               .arg(DesignTokens::primaryLightest(), DesignTokens::border()));
-    header->setFixedHeight(170);
+    header->setFixedHeight(148);
 
     auto *layout = new QVBoxLayout(header);
-    layout->setContentsMargins(24, 14, 24, 18);
+    layout->setContentsMargins(24, 12, 24, 14);
     layout->setSpacing(0);
 
     auto *avatar = new QLabel(header);
-    avatar->setFixedSize(72, 72);
+    avatar->setFixedSize(62, 62);
     avatar->setAlignment(Qt::AlignCenter);
     avatar->setText(nickname.isEmpty() ? QStringLiteral("L") : nickname.left(1));
     avatar->setStyleSheet(QStringLiteral(
-        "background:#4CAF7F;color:white;border-radius:36px;"
+        "background:#4CAF7F;color:white;border-radius:31px;"
         "font-family:\"MiSans Medium\",\"MiSans\",\"Microsoft YaHei UI\";"
-        "font-size:28px;font-weight:700;"));
+        "font-size:24px;font-weight:700;"));
     layout->addWidget(avatar);
-    layout->addSpacing(12);
+    layout->addSpacing(9);
 
     m_headerNickname = new QLabel(nickname.isEmpty() ? QStringLiteral("LifeBalance AI") : nickname, header);
     m_headerNickname->setStyleSheet(QStringLiteral(
         "font-family:\"MiSans Bold\",\"MiSans\",\"Microsoft YaHei UI\";"
-        "font-size:23px;font-weight:700;color:#1A1A1A;background:transparent;"));
+        "font-size:22px;font-weight:700;color:#1A1A1A;background:transparent;"));
     layout->addWidget(m_headerNickname);
-    layout->addSpacing(8);
+    layout->addSpacing(7);
 
     m_headerRole = new QLabel(role, header);
     m_headerRole->setAlignment(Qt::AlignCenter);
-    m_headerRole->setFixedHeight(28);
+    m_headerRole->setFixedHeight(26);
     m_headerRole->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     m_headerRole->setContentsMargins(12, 0, 12, 0);
     m_headerRole->setStyleSheet(QStringLiteral(
         "font-family:\"MiSans Medium\",\"MiSans\",\"Microsoft YaHei UI\";"
         "font-size:13px;font-weight:500;color:#2D7A5E;"
-        "background:#FFFFFF;border:1px solid #A8E6C3;border-radius:14px;"
+        "background:#FFFFFF;border:1px solid #A8E6C3;border-radius:13px;"
         "padding:0 12px;"));
     layout->addWidget(m_headerRole);
 
     m_panelLayout->addWidget(header);
-    m_panelLayout->addSpacing(22);
+    m_panelLayout->addSpacing(18);
 }
 
 void SideDrawer::addSeparator()
@@ -95,7 +95,7 @@ void SideDrawer::addSeparator()
     m_currentGroup = nullptr;
     m_currentGroupLayout = nullptr;
     m_currentGroupItemCount = 0;
-    m_panelLayout->addSpacing(26);
+    m_panelLayout->addSpacing(22);
 }
 
 void SideDrawer::addItem(const QString &icon, const QString &text, std::function<void()> callback)
@@ -138,7 +138,7 @@ void SideDrawer::addItem(const QString &icon, const QString &text, std::function
     auto *button = new QPushButton(icon + QStringLiteral("  ") + text + rightMark, m_currentGroup);
     button->setFlat(true);
     button->setCursor(Qt::PointingHandCursor);
-    button->setFixedHeight(66);
+    button->setFixedHeight(60);
     button->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
 
     const QString normalColor = isLogout ? DesignTokens::accentDark() : DesignTokens::textBody();
@@ -148,7 +148,7 @@ void SideDrawer::addItem(const QString &icon, const QString &text, std::function
         "QPushButton{"
         "text-align:left;padding:0 20px;"
         "font-family:\"MiSans Medium\",\"MiSans\",\"Microsoft YaHei UI\";"
-        "font-size:16px;font-weight:500;color:%1;"
+        "font-size:15px;font-weight:500;color:%1;"
         "border:none;background:transparent;border-radius:0;"
         "}"
         "QPushButton:hover{background:%2;color:#1A1A1A;}"

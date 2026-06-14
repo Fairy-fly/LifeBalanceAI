@@ -294,7 +294,11 @@ void animateCompletionFeedback(QWidget *parent, const QString &message)
         return;
     auto *overlay = new CompletionFeedback(parent);
     overlay->setAttribute(Qt::WA_DeleteOnClose);
-    overlay->setGeometry(parent->rect());
+    const int side = qMin(220, qMin(parent->width(), parent->height()) - 24);
+    const QSize overlaySize(qMax(160, side), qMax(160, side));
+    overlay->setGeometry(QRect(QPoint((parent->width() - overlaySize.width()) / 2,
+                                      (parent->height() - overlaySize.height()) / 2),
+                               overlaySize));
     overlay->raise();
     overlay->showCompletionFeedback(message);
     QTimer::singleShot(1100, overlay, &QWidget::close);

@@ -31,20 +31,19 @@ void FeedbackDialog::setupUi(const QString &slotTitle, const QString &initialTex
     setModal(true);
     setAttribute(Qt::WA_StyledBackground, true);
     setStyleSheet(QStringLiteral(
-        "QDialog#feedbackDialog{background:#FEFEFE;border:1px solid #E8E8E8;border-radius:12px;}"
+        "QDialog#feedbackDialog{background:#FEFEFE;border:1px solid #D9D9D9;border-radius:12px;}"
         "QLabel#feedbackPrompt{background:transparent;color:#333333;font-size:14px;"
         "font-family:\"MiSans Medium\",\"MiSans\",\"Noto Sans SC\",\"Microsoft YaHei UI\";font-weight:500;}"
         "QLabel#feedbackImagePreview{background:#FFFFFF;border:1px dashed #D9D9D9;"
-        "border-radius:8px;color:#999999;font-size:13px;}"
-    ));
+        "border-radius:8px;color:#999999;font-size:13px;}"));
 
 #ifdef Q_OS_ANDROID
     QRect available(0, 0, 390, 760);
     if (QScreen *screen = QGuiApplication::primaryScreen())
         available = screen->availableGeometry();
 
-    const int dialogWidth = qMax(280, qMin(available.width() - 72, 320));
-    const int dialogHeight = qMax(320, qMin(available.height() - 320, 360));
+    const int dialogWidth = qMax(280, qMin(available.width() - 72, 324));
+    const int dialogHeight = qMax(316, qMin(available.height() - 340, 348));
     setMinimumSize(0, 0);
     setFixedSize(dialogWidth, dialogHeight);
 #else
@@ -122,7 +121,7 @@ void FeedbackDialog::setupUi(const QString &slotTitle, const QString &initialTex
     actionRow->setSpacing(12);
 #endif
 
-    m_btnCancel = new QPushButton(QString::fromUtf8("取消"), this);
+    m_btnCancel = new QPushButton(QStringLiteral("取消"), this);
     m_btnCancel->setProperty("class", QStringLiteral("secondary"));
 #ifdef Q_OS_ANDROID
     m_btnCancel->setMinimumHeight(42);
