@@ -128,6 +128,31 @@ void MobileShellController::positionBottomNav()
         return;
 
     const int navHeight = LifeBalanceAI::Ui::PlatformLayoutPolicy::bottomNavHeight();
+
+#ifdef Q_OS_ANDROID
+    if (auto *grid = qobject_cast<QGridLayout *>(host->layout())) {
+        if (grid->indexOf(m_bottomNav) >= 0)
+            grid->removeWidget(m_bottomNav);
+        grid->setRowStretch(0, 1);
+        grid->setRowStretch(1, 0);
+        grid->setRowMinimumHeight(1, 0);
+        grid->invalidate();
+    }
+
+    if (m_bottomNav->parentWidget() != host)
+        m_bottomNav->setParent(host);
+    m_bottomNav->setGeometry(0,
+                             qMax(0, host->height() - navHeight),
+                             host->width(),
+                             navHeight);
+
+    if (m_bottomNav->isVisible()) {
+        m_bottomNav->show();
+        m_bottomNav->raise();
+    }
+    return;
+#endif
+
     if (auto *grid = qobject_cast<QGridLayout *>(host->layout())) {
         if (m_bottomNav->parentWidget() != host)
             m_bottomNav->setParent(host);

@@ -3517,7 +3517,9 @@ QScrollArea *goalScroll = ui->frameGoal->findChild<QScrollArea *>(QStringLiteral
                                       : screen->availableGeometry().height();
         if (centralWidget() && centralWidget()->height() > 0)
             viewportH = qMin(viewportH, centralWidget()->height());
-        const int navH = (m_bottomNav && m_bottomNav->isVisible()) ? 64 : 0;
+        const int navH = (m_bottomNav && m_bottomNav->isVisible())
+                             ? LifeBalanceAI::Ui::PlatformLayoutPolicy::bottomNavHeight()
+                             : 0;
         const int topBarH = 42;
         const int spacingBudget = 12;
         const int stackH = qMax(0, viewportH - navH);
@@ -10023,7 +10025,7 @@ int MainWindow::setupAnalysisPage()
 
 
 #ifdef Q_OS_ANDROID
-        vlay->addSpacing(64);
+        vlay->addSpacing(LifeBalanceAI::Ui::PlatformLayoutPolicy::bottomNavHeight());
 #else
         vlay->addStretch();
 #endif
@@ -10139,7 +10141,7 @@ int MainWindow::setupAnalysisPage()
 
 
 #ifdef Q_OS_ANDROID
-        vlay->addSpacing(64);
+        vlay->addSpacing(LifeBalanceAI::Ui::PlatformLayoutPolicy::bottomNavHeight());
 #else
         vlay->addStretch();
 #endif

@@ -13,6 +13,7 @@ class PlatformLayoutPolicy
 public:
     static bool isMobileRuntime();
     static QSize availableScreenSize();
+    static int bottomSafeAreaInset();
     static int bottomNavHeight();
     static void applyMobileScrollPolicy(QWidget *root);
     static void normalizeHorizontalPosition(QWidget *root);

@@ -1,5 +1,6 @@
 #include "bottomnavbar.h"
 #include "designtokens.h"
+#include "platformlayoutpolicy.h"
 
 #ifndef Q_OS_ANDROID
 #include <QGraphicsDropShadowEffect>
@@ -21,7 +22,8 @@ BottomNavBar::BottomNavBar(QWidget *parent)
 void BottomNavBar::setupUi()
 {
 #ifdef Q_OS_ANDROID
-    setFixedHeight(64);
+    const int bottomInset = LifeBalanceAI::Ui::PlatformLayoutPolicy::bottomSafeAreaInset();
+    setFixedHeight(LifeBalanceAI::Ui::PlatformLayoutPolicy::bottomNavHeight());
 #else
     setFixedHeight(66);
 #endif
@@ -43,7 +45,7 @@ void BottomNavBar::setupUi()
 
     m_layout = new QHBoxLayout(this);
 #ifdef Q_OS_ANDROID
-    m_layout->setContentsMargins(6, 4, 6, 8);
+    m_layout->setContentsMargins(6, 4, 6, 8 + bottomInset);
     m_layout->setSpacing(2);
 #else
     m_layout->setContentsMargins(8, 6, 8, 8);

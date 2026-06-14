@@ -37,9 +37,18 @@ QSize PlatformLayoutPolicy::availableScreenSize()
 int PlatformLayoutPolicy::bottomNavHeight()
 {
 #ifdef Q_OS_ANDROID
-    return 64;
+    return 64 + bottomSafeAreaInset();
 #else
     return 60;
+#endif
+}
+
+int PlatformLayoutPolicy::bottomSafeAreaInset()
+{
+#ifdef Q_OS_ANDROID
+    return 48;
+#else
+    return 0;
 #endif
 }
 
