@@ -6,6 +6,7 @@
 #include <QGraphicsOpacityEffect>
 #include <QLabel>
 #include <QPushButton>
+#include <QScrollArea>
 #include <QVBoxLayout>
 #include <QLineEdit>
 #include <QTimer>
@@ -39,7 +40,9 @@ protected:
     void showEvent(QShowEvent *e) override;
 private:
     void setupUi();
+    void refreshMessageScrollLimit();
     QLabel *m_ttl=nullptr, *m_msg=nullptr;
+    QScrollArea *m_msgScroll=nullptr;
     QPushButton *m_ok=nullptr, *m_btn2=nullptr;
     QWidget *m_accentBar=nullptr;
     AnimStyle m_style;

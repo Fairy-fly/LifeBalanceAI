@@ -44,8 +44,8 @@ private:
     QList<NavItem> m_items;
     int m_currentIndex = 0;
     int m_bottomSafeAreaInset = 0;
-    QString m_activeColor = "#2D7A5E";
-    QString m_inactiveColor = "#999999";
+    QString m_activeColor = "#2F6F57";
+    QString m_inactiveColor = "#8A8A8A";
 };
 
 #endif

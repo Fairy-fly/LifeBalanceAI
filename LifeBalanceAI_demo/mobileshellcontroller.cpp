@@ -4,6 +4,7 @@
 #include "platformlayoutpolicy.h"
 
 #include <QGridLayout>
+#include <QSizePolicy>
 #include <QStackedWidget>
 #include <QWidget>
 
@@ -19,6 +20,13 @@ void MobileShellController::setShellWidgets(BottomNavBar *bottomNav, QStackedWid
     m_bottomNav = bottomNav;
     m_stack = stack;
     m_host = host;
+
+#ifdef Q_OS_ANDROID
+    if (m_stack) {
+        m_stack->setMinimumHeight(0);
+        m_stack->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Ignored);
+    }
+#endif
 }
 
 void MobileShellController::setRouteIndex(AppRoute route, int pageIndex)
@@ -132,21 +140,31 @@ void MobileShellController::positionBottomNav()
     m_bottomNav->setBottomSafeAreaInset(bottomInset);
     const int navHeight = LifeBalanceAI::Ui::PlatformLayoutPolicy::bottomNavContentHeight() + bottomInset;
 
+    if (m_stack) {
+        m_stack->setMinimumHeight(0);
+        m_stack->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Ignored);
+    }
+
     if (auto *grid = qobject_cast<QGridLayout *>(host->layout())) {
-        if (grid->indexOf(m_bottomNav) >= 0)
-            grid->removeWidget(m_bottomNav);
+        if (m_bottomNav->parentWidget() != host)
+            m_bottomNav->setParent(host);
+        if (grid->indexOf(m_bottomNav) < 0)
+            grid->addWidget(m_bottomNav, 1, 0);
         grid->setRowStretch(0, 1);
         grid->setRowStretch(1, 0);
-        grid->setRowMinimumHeight(1, 0);
+        grid->setRowMinimumHeight(1, m_bottomNav->isVisible() ? navHeight : 0);
         grid->invalidate();
+    } else {
+        if (m_bottomNav->parentWidget() != host)
+            m_bottomNav->setParent(host);
+        m_bottomNav->setGeometry(0,
+                                 qMax(0, host->height() - navHeight),
+                                 host->width(),
+                                 navHeight);
     }
 
     if (m_bottomNav->parentWidget() != host)
         m_bottomNav->setParent(host);
-    m_bottomNav->setGeometry(0,
-                             qMax(0, host->height() - navHeight),
-                             host->width(),
-                             navHeight);
 
     if (m_bottomNav->isVisible()) {
         m_bottomNav->show();

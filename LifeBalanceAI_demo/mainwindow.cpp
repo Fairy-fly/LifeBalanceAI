@@ -3399,9 +3399,9 @@ void MainWindow::applyWarmVisualPolish()
 
                 if (actionColumn) {
 #ifdef Q_OS_ANDROID
-                    actionColumn->setMinimumWidth(72);
-                    actionColumn->setMaximumWidth(78);
-                    actionColumn->setMinimumHeight(78);
+                    actionColumn->setMinimumWidth(66);
+                    actionColumn->setMaximumWidth(72);
+                    actionColumn->setMinimumHeight(70);
 #else
                     actionColumn->setMinimumWidth(112);
                     actionColumn->setMaximumWidth(128);
@@ -3467,8 +3467,8 @@ void MainWindow::applyWarmVisualPolish()
             if (button->objectName().startsWith(QStringLiteral("btnFeedback")) ||
                 button->objectName() == QStringLiteral("btnAdjust")) {
 #ifdef Q_OS_ANDROID
-                button->setMinimumSize(70, 34);
-                button->setMaximumSize(80, 36);
+                button->setMinimumSize(62, 28);
+                button->setMaximumSize(72, 30);
 #else
                 button->setMinimumSize(112, 48);
                 button->setMaximumSize(128, 52);

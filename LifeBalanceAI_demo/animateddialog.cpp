@@ -4,11 +4,15 @@
 
 #include <QApplication>
 #include <QGuiApplication>
+#include <QFrame>
 #include <QHBoxLayout>
 #include <QParallelAnimationGroup>
 #include <QPainter>
 #include <QPainterPath>
+#include <QScrollArea>
+#include <QScrollBar>
 #include <QScreen>
+#include <QSizePolicy>
 #include <QStyle>
 #include <QTimer>
 
@@ -86,7 +90,11 @@ void AnimatedDialog::setupUi()
     setAttribute(Qt::WA_TranslucentBackground);
 #endif
     setModal(true);
+#ifdef Q_OS_ANDROID
+    setMinimumWidth(0);
+#else
     setMinimumWidth(330);
+#endif
 
     auto *outer = new QHBoxLayout(this);
     outer->setContentsMargins(0, 0, 0, 0);
@@ -99,8 +107,11 @@ void AnimatedDialog::setupUi()
 
     auto *content = new QWidget(this);
     auto *layout = new QVBoxLayout(content);
-    layout->setContentsMargins(18, 16, 18, 14);
-    layout->setSpacing(8);
+    layout->setContentsMargins(DesignTokens::DialogPaddingMobile,
+                               DesignTokens::DialogPaddingMobile - 2,
+                               DesignTokens::DialogPaddingMobile,
+                               DesignTokens::DialogPaddingMobile - 4);
+    layout->setSpacing(DesignTokens::SpaceSm);
 
     m_ttl = new QLabel(content);
     m_ttl->setObjectName(QStringLiteral("dialogTitle"));
@@ -109,17 +120,37 @@ void AnimatedDialog::setupUi()
     m_msg = new QLabel(content);
     m_msg->setObjectName(QStringLiteral("dialogMessage"));
     m_msg->setWordWrap(true);
-    layout->addWidget(m_msg);
+    m_msg->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+
+    auto *messageHost = new QWidget(content);
+    messageHost->setObjectName(QStringLiteral("dialogMessageHost"));
+    auto *messageLayout = new QVBoxLayout(messageHost);
+    messageLayout->setContentsMargins(0, 0, 0, 0);
+    messageLayout->setSpacing(0);
+    messageLayout->addWidget(m_msg);
+
+    m_msgScroll = new QScrollArea(content);
+    m_msgScroll->setObjectName(QStringLiteral("dialogMessageScroll"));
+    m_msgScroll->setFrameShape(QFrame::NoFrame);
+    m_msgScroll->setWidgetResizable(true);
+    m_msgScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_msgScroll->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    m_msgScroll->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    m_msgScroll->setWidget(messageHost);
+    if (QScrollBar *bar = m_msgScroll->verticalScrollBar())
+        bar->setFixedWidth(3);
+    layout->addWidget(m_msgScroll);
 
     auto *buttons = new QHBoxLayout();
     buttons->setObjectName(QStringLiteral("buttonLayout"));
-    buttons->setContentsMargins(0, 8, 0, 0);
-    buttons->setSpacing(8);
+    buttons->setContentsMargins(0, DesignTokens::SpaceSm, 0, 0);
+    buttons->setSpacing(DesignTokens::SpaceSm);
     buttons->addStretch();
 
     m_ok = new QPushButton(QString::fromUtf8("\u786e\u5b9a"), this);
     m_ok->setProperty("class", QStringLiteral("dialogPrimary"));
-    m_ok->setFixedSize(84, 34);
+    m_ok->setMinimumSize(76, 36);
+    m_ok->setMaximumHeight(38);
     m_ok->setCursor(Qt::PointingHandCursor);
     buttons->addWidget(m_ok);
     layout->addLayout(buttons);
@@ -136,7 +167,26 @@ void AnimatedDialog::setupUi()
 #endif
 }
 
-void AnimatedDialog::setMessage(const QString &text) { m_msg->setText(text); }
+void AnimatedDialog::refreshMessageScrollLimit()
+{
+    if (!m_msgScroll)
+        return;
+
+#ifdef Q_OS_ANDROID
+    const QRect available = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogAvailableRect();
+    const int maxMessageHeight = qBound(92, available.height() * 46 / 100, 320);
+#else
+    const int maxMessageHeight = 420;
+#endif
+    m_msgScroll->setMinimumHeight(0);
+    m_msgScroll->setMaximumHeight(maxMessageHeight);
+}
+
+void AnimatedDialog::setMessage(const QString &text)
+{
+    m_msg->setText(text);
+    refreshMessageScrollLimit();
+}
 void AnimatedDialog::setTitle(const QString &text) { m_ttl->setText(text); }
 
 void AnimatedDialog::setType(const QString &type)
@@ -156,6 +206,7 @@ void AnimatedDialog::setType(const QString &type)
 void AnimatedDialog::showAnimated()
 {
     Q_UNUSED(m_style)
+    refreshMessageScrollLimit();
     centerOnParent(this);
 #ifdef Q_OS_ANDROID
     show();
@@ -208,9 +259,9 @@ void AnimatedDialog::paintEvent(QPaintEvent *)
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
     QPainterPath path;
-    path.addRoundedRect(rect().adjusted(1, 1, -1, -1), 12, 12);
-    painter.fillPath(path, QColor(QStringLiteral("#FEFEFE")));
-    painter.setPen(QPen(QColor(QStringLiteral("#E8E8E8")), 1));
+    path.addRoundedRect(rect().adjusted(1, 1, -1, -1), DesignTokens::RadiusLg, DesignTokens::RadiusLg);
+    painter.fillPath(path, QColor(DesignTokens::bgCard()));
+    painter.setPen(QPen(QColor(DesignTokens::border()), 1));
     painter.drawPath(path);
 }
 
@@ -257,7 +308,8 @@ bool AnimatedDialog::confirm(QWidget *parent, const QString &title, const QStrin
 
     auto *cancel = new QPushButton(QString::fromUtf8("\u53d6\u6d88"), dialog);
     cancel->setProperty("class", QStringLiteral("dialogSecondary"));
-    cancel->setFixedSize(78, 34);
+    cancel->setMinimumSize(76, 36);
+    cancel->setMaximumHeight(38);
     cancel->setCursor(Qt::PointingHandCursor);
 
     auto *buttonLayout = dialog->findChild<QHBoxLayout *>(QStringLiteral("buttonLayout"));
@@ -291,7 +343,8 @@ int AnimatedDialog::choose(QWidget *parent, const QString &title, const QString 
 
     auto *second = new QPushButton(btn2, dialog);
     second->setProperty("class", QStringLiteral("dialogSecondary"));
-    second->setFixedSize(88, 34);
+    second->setMinimumSize(82, 36);
+    second->setMaximumHeight(38);
     second->setCursor(Qt::PointingHandCursor);
 
     auto *buttonLayout = dialog->findChild<QHBoxLayout *>(QStringLiteral("buttonLayout"));
@@ -328,11 +381,18 @@ void AnimatedInputDialog::setupUi()
     setAttribute(Qt::WA_TranslucentBackground);
 #endif
     setModal(true);
+#ifdef Q_OS_ANDROID
+    setMinimumWidth(0);
+#else
     setMinimumWidth(350);
+#endif
 
     auto *layout = new QVBoxLayout(this);
-    layout->setContentsMargins(20, 18, 20, 16);
-    layout->setSpacing(10);
+    layout->setContentsMargins(DesignTokens::DialogPaddingMobile,
+                               DesignTokens::DialogPaddingMobile,
+                               DesignTokens::DialogPaddingMobile,
+                               DesignTokens::DialogPaddingMobile - 2);
+    layout->setSpacing(DesignTokens::SpaceSm);
 
     m_ttl = new QLabel(this);
     m_ttl->setObjectName(QStringLiteral("dialogTitle"));
@@ -344,23 +404,25 @@ void AnimatedInputDialog::setupUi()
     layout->addWidget(m_pmt);
 
     m_inp = new QLineEdit(this);
-    m_inp->setMinimumHeight(40);
+    m_inp->setMinimumHeight(DesignTokens::ButtonHeightPrimary);
     layout->addWidget(m_inp);
 
     auto *buttons = new QHBoxLayout();
-    buttons->setContentsMargins(0, 8, 0, 0);
-    buttons->setSpacing(8);
+    buttons->setContentsMargins(0, DesignTokens::SpaceSm, 0, 0);
+    buttons->setSpacing(DesignTokens::SpaceSm);
     buttons->addStretch();
 
     m_ccl = new QPushButton(QString::fromUtf8("\u53d6\u6d88"), this);
     m_ccl->setProperty("class", QStringLiteral("dialogSecondary"));
-    m_ccl->setFixedSize(78, 34);
+    m_ccl->setMinimumSize(76, 36);
+    m_ccl->setMaximumHeight(38);
     m_ccl->setCursor(Qt::PointingHandCursor);
     buttons->addWidget(m_ccl);
 
     m_ok = new QPushButton(QString::fromUtf8("\u786e\u5b9a"), this);
     m_ok->setProperty("class", QStringLiteral("dialogPrimary"));
-    m_ok->setFixedSize(78, 34);
+    m_ok->setMinimumSize(76, 36);
+    m_ok->setMaximumHeight(38);
     m_ok->setCursor(Qt::PointingHandCursor);
     buttons->addWidget(m_ok);
     layout->addLayout(buttons);
@@ -422,9 +484,9 @@ void AnimatedInputDialog::paintEvent(QPaintEvent *)
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
     QPainterPath path;
-    path.addRoundedRect(rect().adjusted(1, 1, -1, -1), 12, 12);
-    painter.fillPath(path, QColor(QStringLiteral("#FEFEFE")));
-    painter.setPen(QPen(QColor(QStringLiteral("#E8E8E8")), 1));
+    path.addRoundedRect(rect().adjusted(1, 1, -1, -1), DesignTokens::RadiusLg, DesignTokens::RadiusLg);
+    painter.fillPath(path, QColor(DesignTokens::bgCard()));
+    painter.setPen(QPen(QColor(DesignTokens::border()), 1));
     painter.drawPath(path);
 }
 

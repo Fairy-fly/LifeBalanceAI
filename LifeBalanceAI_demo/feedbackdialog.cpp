@@ -1,4 +1,5 @@
 #include "feedbackdialog.h"
+#include "designtokens.h"
 #include "platformlayoutpolicy.h"
 
 #include <QFileDialog>
@@ -32,17 +33,23 @@ void FeedbackDialog::setupUi(const QString &slotTitle, const QString &initialTex
     setModal(true);
     setAttribute(Qt::WA_StyledBackground, true);
     setStyleSheet(QStringLiteral(
-        "QDialog#feedbackDialog{background:#FEFEFE;border:1px solid #D9D9D9;border-radius:12px;}"
+        "QDialog#feedbackDialog{background:%1;border:1px solid %2;border-radius:%3px;}"
         "QLabel#feedbackPrompt{background:transparent;color:#333333;font-size:14px;"
-        "font-family:\"MiSans Medium\",\"MiSans\",\"Noto Sans SC\",\"Microsoft YaHei UI\";font-weight:500;}"
-        "QLabel#feedbackImagePreview{background:#FFFFFF;border:1px dashed #D9D9D9;"
-        "border-radius:8px;color:#999999;font-size:13px;}"));
+        "font-family:\"MiSans\",\"Noto Sans SC\",\"Microsoft YaHei UI\";font-weight:400;}"
+        "QLabel#feedbackImagePreview{background:#FFFFFF;border:1px dashed %4;"
+        "border-radius:10px;color:#999999;font-size:13px;}")
+        .arg(DesignTokens::bgCard(),
+             DesignTokens::border(),
+             QString::number(DesignTokens::RadiusLg),
+             DesignTokens::borderStrong()));
 
 #ifdef Q_OS_ANDROID
     const QRect available = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogAvailableRect();
-
-    const int dialogWidth = qMax(280, qMin(available.width() - 36, 340));
-    const int dialogHeight = qMax(316, qMin(available.height() - 96, 420));
+    const QSize target = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogSizeForRole(
+        LifeBalanceAI::Ui::PlatformLayoutPolicy::DialogRole::Input,
+        QSize(qMin(available.width(), 340), 356));
+    const int dialogWidth = qMax(292, qMin(target.width(), available.width()));
+    const int dialogHeight = qMax(320, qMin(target.height(), available.height()));
     setMinimumSize(0, 0);
     setFixedSize(dialogWidth, dialogHeight);
     LifeBalanceAI::Ui::PlatformLayoutPolicy::centerWidgetOnSafeArea(this);

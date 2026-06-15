@@ -1,4 +1,5 @@
 #include "deepanalysisdialog.h"
+#include "designtokens.h"
 #include "platformlayoutpolicy.h"
 
 #include <QVBoxLayout>
@@ -29,17 +30,20 @@ void DeepAnalysisDialog::setupUi()
     setAttribute(Qt::WA_StyledBackground, true);
     setStyleSheet(QStringLiteral(
         "#analysisDialog{"
-        "  background:#FFFFFF;"
-        "  border:2px solid #4CAF7F;"
-        "  border-radius:8px;"
+        "  background:%1;"
+        "  border:1px solid %2;"
+        "  border-radius:%3px;"
         "}"
-    ));
+    ).arg(DesignTokens::bgCard(),
+          DesignTokens::border(),
+          QString::number(DesignTokens::RadiusLg)));
 #ifdef Q_OS_ANDROID
     const QRect available = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogAvailableRect();
-    const int dialogWidth = qMax(300, qMin(available.width(), 540));
-    const int dialogHeight = qMax(420, qMin(available.height(), 680));
-    setMinimumSize(qMin(dialogWidth, 540), qMin(dialogHeight, 520));
-    resize(dialogWidth, dialogHeight);
+    const QSize target = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogSizeForRole(
+        LifeBalanceAI::Ui::PlatformLayoutPolicy::DialogRole::LargeContent,
+        QSize(qMin(available.width(), 540), qMin(available.height(), 620)));
+    setMinimumSize(qMin(target.width(), 540), qMin(target.height(), 520));
+    resize(target);
 #else
     setMinimumSize(480, 600);
     resize(520, 680);
@@ -56,15 +60,15 @@ void DeepAnalysisDialog::setupUi()
     }
 
     auto *mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(18, 18, 18, 18);
-    mainLayout->setSpacing(12);
+    mainLayout->setContentsMargins(16, 16, 16, 16);
+    mainLayout->setSpacing(10);
 
     // Title
     auto *titleLabel = new QLabel(tr("🔬 AI 深度分析报告"), this);
     titleLabel->setObjectName(QStringLiteral("analysisDialogTitle"));
     QFont titleFont = titleLabel->font();
-    titleFont.setPointSize(16);
-    titleFont.setBold(true);
+    titleFont.setPointSize(15);
+    titleFont.setWeight(QFont::DemiBold);
     titleLabel->setFont(titleFont);
     titleLabel->setAlignment(Qt::AlignCenter);
     mainLayout->addWidget(titleLabel);
@@ -94,8 +98,8 @@ void DeepAnalysisDialog::setupUi()
 
     m_contentWidget = new QWidget;
     m_contentWidget->setLayout(new QVBoxLayout);
-    m_contentWidget->layout()->setContentsMargins(6, 6, 6, 6);
-    m_contentWidget->layout()->setSpacing(12);
+    m_contentWidget->layout()->setContentsMargins(4, 4, 4, 4);
+    m_contentWidget->layout()->setSpacing(10);
 
     m_scrollArea->setWidget(m_contentWidget);
     mainLayout->addWidget(m_scrollArea);

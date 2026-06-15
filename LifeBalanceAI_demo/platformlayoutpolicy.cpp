@@ -116,7 +116,7 @@ void applyWindowEdgeToEdge()
         window.callMethod<void>("clearFlags", "(I)V",
                                 flagTranslucentStatus | flagTranslucentNavigation);
         window.callMethod<void>("addFlags", "(I)V", flagDrawsSystemBarBackgrounds);
-        window.callMethod<void>("setStatusBarColor", "(I)V", jint(0x00000000));
+        window.callMethod<void>("setStatusBarColor", "(I)V", pageBackgroundColor);
         window.callMethod<void>("setNavigationBarColor", "(I)V", pageBackgroundColor);
     }
 
@@ -249,29 +249,29 @@ QSize PlatformLayoutPolicy::dialogSizeForRole(DialogRole role, const QSize &cont
     if (available.width() <= 0 || available.height() <= 0)
         return contentHint;
 
-    qreal widthRatio = 0.82;
-    int minHeight = 168;
-    int maxHeight = qMin(available.height(), 340);
+    qreal widthRatio = 0.84;
+    int minHeight = 132;
+    int maxHeight = qMin(available.height() * 72 / 100, 360);
 
     switch (role) {
     case DialogRole::Input:
         widthRatio = 0.86;
-        minHeight = 236;
-        maxHeight = qMin(available.height(), 340);
+        minHeight = 220;
+        maxHeight = qMin(available.height() * 72 / 100, 360);
         break;
     case DialogRole::LargeContent:
         widthRatio = 0.90;
-        minHeight = 420;
-        maxHeight = qMin(available.height(), 680);
+        minHeight = qMin(380, available.height());
+        maxHeight = qMin(available.height() * 86 / 100, 680);
         break;
     case DialogRole::Alert:
     default:
-        minHeight = 176;
-        maxHeight = qMin(available.height(), 320);
+        minHeight = 132;
+        maxHeight = qMin(available.height() * 70 / 100, 340);
         break;
     }
 
-    const int preferredWidth = qBound(300, qRound(available.width() * widthRatio), available.width());
+    const int preferredWidth = qBound(292, qRound(available.width() * widthRatio), available.width());
     const int contentHeight = contentHint.isValid() ? contentHint.height() : 0;
     QSize target(preferredWidth, qBound(minHeight, contentHeight, maxHeight));
     if (contentHint.width() > target.width())
@@ -319,7 +319,7 @@ int PlatformLayoutPolicy::bottomSafeAreaInset()
 int PlatformLayoutPolicy::bottomNavContentHeight()
 {
 #ifdef Q_OS_ANDROID
-    return 64;
+    return 60;
 #else
     return 60;
 #endif
@@ -333,7 +333,7 @@ int PlatformLayoutPolicy::bottomNavHeight()
 int PlatformLayoutPolicy::bottomNavPagePadding()
 {
 #ifdef Q_OS_ANDROID
-    return bottomNavHeight() + 12;
+    return bottomNavHeight() + 16;
 #else
     return bottomNavHeight();
 #endif

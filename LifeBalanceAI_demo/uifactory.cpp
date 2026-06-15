@@ -93,8 +93,11 @@ QWidget *emptyState(const QString &assetPath, const QString &title, const QStrin
     setClass(box, QStringLiteral("warmCard"));
 
     auto *layout = new QVBoxLayout(box);
-    layout->setContentsMargins(18, 18, 18, 18);
-    layout->setSpacing(8);
+    layout->setContentsMargins(DesignTokens::CardPaddingMobile,
+                               DesignTokens::CardPaddingMobile,
+                               DesignTokens::CardPaddingMobile,
+                               DesignTokens::CardPaddingMobile);
+    layout->setSpacing(DesignTokens::SpaceSm);
 
     layout->addWidget(assetLabel(assetPath, 108, box));
 
@@ -117,7 +120,7 @@ QPushButton *primaryButton(const QString &text, QWidget *parent)
 {
     auto *button = new QPushButton(text, parent);
     setClass(button, QStringLiteral("primary"));
-    button->setMinimumHeight(44);
+    button->setMinimumHeight(DesignTokens::ButtonHeightPrimary);
     button->setCursor(Qt::PointingHandCursor);
     return button;
 }
@@ -126,7 +129,7 @@ QPushButton *secondaryButton(const QString &text, QWidget *parent)
 {
     auto *button = new QPushButton(text, parent);
     setClass(button, QStringLiteral("secondary"));
-    button->setMinimumHeight(40);
+    button->setMinimumHeight(DesignTokens::ButtonHeightSecondary);
     button->setCursor(Qt::PointingHandCursor);
     return button;
 }
@@ -135,7 +138,7 @@ QPushButton *ghostButton(const QString &text, QWidget *parent)
 {
     auto *button = new QPushButton(text, parent);
     setClass(button, QStringLiteral("ghost"));
-    button->setMinimumHeight(36);
+    button->setMinimumHeight(DesignTokens::ButtonHeightSecondary);
     button->setCursor(Qt::PointingHandCursor);
     return button;
 }
@@ -144,7 +147,7 @@ QPushButton *dangerButton(const QString &text, QWidget *parent)
 {
     auto *button = new QPushButton(text, parent);
     setClass(button, QStringLiteral("danger"));
-    button->setMinimumHeight(40);
+    button->setMinimumHeight(DesignTokens::ButtonHeightSecondary);
     button->setCursor(Qt::PointingHandCursor);
     return button;
 }
@@ -152,7 +155,8 @@ QPushButton *dangerButton(const QString &text, QWidget *parent)
 QPushButton *smallButton(const QString &text, QWidget *parent)
 {
     auto *button = new QPushButton(text, parent);
-    button->setMinimumHeight(32);
+    setClass(button, QStringLiteral("smallAction"));
+    button->setMinimumHeight(DesignTokens::ButtonHeightSmall);
     button->setCursor(Qt::PointingHandCursor);
     return button;
 }
@@ -161,7 +165,7 @@ QLineEdit *textInput(const QString &placeholder, QWidget *parent)
 {
     auto *input = new QLineEdit(parent);
     input->setPlaceholderText(placeholder);
-    input->setMinimumHeight(40);
+    input->setMinimumHeight(DesignTokens::ButtonHeightPrimary);
     return input;
 }
 
@@ -178,8 +182,11 @@ QWidget *infoCard(const QString &title, const QString &body, QWidget *parent)
     card->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
 #endif
     auto *layout = new QVBoxLayout(card);
-    layout->setContentsMargins(16, 16, 16, 16);
-    layout->setSpacing(8);
+    layout->setContentsMargins(DesignTokens::CardPaddingMobile,
+                               DesignTokens::CardPaddingMobile,
+                               DesignTokens::CardPaddingMobile,
+                               DesignTokens::CardPaddingMobile);
+    layout->setSpacing(DesignTokens::SpaceSm);
 
     auto *titleLabel = new QLabel(title, card);
     titleLabel->setObjectName(QStringLiteral("emptyTitle"));
@@ -204,7 +211,7 @@ QWidget *healthCard(const QString &title, const QString &body, const QString &ac
     card->setStyleSheet(QStringLiteral(
         "QFrame{background:%1;border:1px solid %2;border-left:4px solid %3;border-radius:%4px;}")
         .arg(DesignTokens::bgCard(), DesignTokens::border(), accentColor)
-        .arg(DesignTokens::RadiusMd));
+        .arg(DesignTokens::RadiusLg));
     return card;
 }
 
@@ -217,17 +224,17 @@ void applyWarmPolish(QWidget *root)
         group->setProperty("class", QStringLiteral("warmCard"));
     }
     for (auto *button : root->findChildren<QPushButton *>()) {
-        if (button->minimumHeight() < 32)
-            button->setMinimumHeight(32);
+        if (button->minimumHeight() < DesignTokens::ButtonHeightSmall)
+            button->setMinimumHeight(DesignTokens::ButtonHeightSmall);
         button->setCursor(Qt::PointingHandCursor);
     }
     for (auto *edit : root->findChildren<QLineEdit *>()) {
-        if (edit->minimumHeight() < 40)
-            edit->setMinimumHeight(40);
+        if (edit->minimumHeight() < DesignTokens::ButtonHeightSecondary)
+            edit->setMinimumHeight(DesignTokens::ButtonHeightSecondary);
     }
     for (auto *combo : root->findChildren<QComboBox *>()) {
-        if (combo->minimumHeight() < 40)
-            combo->setMinimumHeight(40);
+        if (combo->minimumHeight() < DesignTokens::ButtonHeightSecondary)
+            combo->setMinimumHeight(DesignTokens::ButtonHeightSecondary);
     }
     for (auto *text : root->findChildren<QTextEdit *>()) {
         text->setMinimumHeight(qMax(text->minimumHeight(), 68));

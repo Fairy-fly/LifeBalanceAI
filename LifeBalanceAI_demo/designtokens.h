@@ -8,16 +8,30 @@ namespace DesignTokens {
 
 inline constexpr int RadiusXs = 4;
 inline constexpr int RadiusSm = 6;
-inline constexpr int RadiusMd = 8;
+inline constexpr int RadiusMd = 10;
 inline constexpr int RadiusLg = 12;
 inline constexpr int RadiusXl = 16;
+inline constexpr int RadiusPill = 999;
 
 inline constexpr int SpaceXs = 4;
 inline constexpr int SpaceSm = 8;
-inline constexpr int SpaceMd = 12;
-inline constexpr int SpaceLg = 16;
+inline constexpr int SpaceMd = 16;
+inline constexpr int SpaceLg = 20;
 inline constexpr int SpaceXl = 24;
 inline constexpr int SpaceXxl = 32;
+
+inline constexpr int PageMarginMobile = 18;
+inline constexpr int CardPaddingMobile = 16;
+inline constexpr int CardGapMobile = 12;
+inline constexpr int ButtonHeightPrimary = 44;
+inline constexpr int ButtonHeightSecondary = 40;
+inline constexpr int ButtonHeightSmall = 30;
+inline constexpr int DialogPaddingMobile = 18;
+inline constexpr int FontPageTitle = 24;
+inline constexpr int FontSectionTitle = 18;
+inline constexpr int FontCardTitle = 15;
+inline constexpr int FontBody = 14;
+inline constexpr int FontMeta = 12;
 
 inline constexpr int MotionFast = 150;
 inline constexpr int MotionBase = 250;
@@ -26,23 +40,23 @@ inline constexpr int MotionSlower = 600;
 
 inline QString color(const char *hex) { return QString::fromLatin1(hex); }
 
-inline QString primaryDark() { return color("#2D7A5E"); }
-inline QString primary() { return color("#4CAF7F"); }
-inline QString primaryLight() { return color("#6BC48F"); }
-inline QString primaryLighter() { return color("#A8E6C3"); }
-inline QString primaryLightest() { return color("#E8F8F2"); }
+inline QString primaryDark() { return color("#2F6F57"); }
+inline QString primary() { return color("#4EAD7D"); }
+inline QString primaryLight() { return color("#76C99E"); }
+inline QString primaryLighter() { return color("#BDEDD5"); }
+inline QString primaryLightest() { return color("#F0FAF5"); }
 inline QString primaryHover() { return primaryLight(); }
 inline QString primaryPressed() { return primaryDark(); }
 
-inline QString accentDark() { return color("#D97E3A"); }
-inline QString accent() { return color("#F4A261"); }
-inline QString accentLight() { return color("#F8B88D"); }
-inline QString accentSoft() { return color("#FFF1E6"); }
+inline QString accentDark() { return color("#C9783F"); }
+inline QString accent() { return color("#E9A15C"); }
+inline QString accentLight() { return color("#F3BE8D"); }
+inline QString accentSoft() { return color("#FFF4EA"); }
 inline QString accentLightest() { return accentSoft(); }
 
-inline QString blue() { return color("#6BA3D4"); }
-inline QString blueLight() { return color("#A8C8E1"); }
-inline QString blueSoft() { return color("#EEF4F9"); }
+inline QString blue() { return color("#5D91BA"); }
+inline QString blueLight() { return color("#B8D1E5"); }
+inline QString blueSoft() { return color("#EFF7FB"); }
 
 inline QString success() { return color("#52C41A"); }
 inline QString successBg() { return color("#F6FFED"); }
@@ -53,9 +67,9 @@ inline QString activeBorder() { return color("#FFD591"); }
 inline QString rest() { return color("#A0AEC0"); }
 inline QString restBg() { return color("#F2F5FB"); }
 inline QString restBorder() { return color("#D1D9E8"); }
-inline QString warning() { return color("#FF7875"); }
-inline QString warningBg() { return color("#FFF1F0"); }
-inline QString warningBorder() { return color("#FFCCCB"); }
+inline QString warning() { return color("#C96A62"); }
+inline QString warningBg() { return color("#FFF3F1"); }
+inline QString warningBorder() { return color("#F1C7C2"); }
 inline QString disabled() { return color("#BFBFBF"); }
 inline QString disabledBg() { return color("#F5F5F5"); }
 
@@ -67,13 +81,13 @@ inline QString textDisabled() { return color("#CCCCCC"); }
 
 inline QString bgWindow() { return color("#FBF6EF"); }
 inline QString bgPage() { return color("#FBF6EF"); }
-inline QString bgCard() { return color("#FEFEFE"); }
-inline QString bgSoft() { return color("#F5F5F5"); }
-inline QString bgLighter() { return color("#EFEFEF"); }
+inline QString bgCard() { return color("#FFFDF9"); }
+inline QString bgSoft() { return color("#F6F1EA"); }
+inline QString bgLighter() { return color("#EEE6DC"); }
 
-inline QString border() { return color("#E8E8E8"); }
-inline QString borderLight() { return color("#F0F0F0"); }
-inline QString borderStrong() { return color("#D9D9D9"); }
+inline QString border() { return color("#E8DED2"); }
+inline QString borderLight() { return color("#F1E9DF"); }
+inline QString borderStrong() { return color("#D8CAB9"); }
 inline QString divider() { return borderLight(); }
 inline QString danger() { return warning(); }
 
