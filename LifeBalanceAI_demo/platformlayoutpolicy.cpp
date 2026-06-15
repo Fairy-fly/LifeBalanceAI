@@ -78,6 +78,72 @@ int androidWindowTopInset()
     const int systemTop = insets.callMethod<jint>("getSystemWindowInsetTop", "()I");
     return qMax(stableTop, systemTop);
 }
+
+int androidSdkVersion()
+{
+    return QJniObject::getStaticField<jint>("android/os/Build$VERSION", "SDK_INT");
+}
+
+void applyWindowEdgeToEdge()
+{
+    if (!QNativeInterface::QAndroidApplication::isActivityContext())
+        return;
+
+    QJniObject activity(QNativeInterface::QAndroidApplication::context());
+    if (!activity.isValid())
+        return;
+
+    QJniObject window = activity.callObjectMethod("getWindow", "()Landroid/view/Window;");
+    if (!window.isValid())
+        return;
+
+    QJniObject decorView = window.callObjectMethod("getDecorView", "()Landroid/view/View;");
+    if (!decorView.isValid())
+        return;
+
+    const int sdk = androidSdkVersion();
+    constexpr jint flagDrawsSystemBarBackgrounds = static_cast<jint>(0x80000000u);
+    constexpr jint flagTranslucentStatus = static_cast<jint>(0x04000000);
+    constexpr jint flagTranslucentNavigation = static_cast<jint>(0x08000000);
+    constexpr jint systemUiLayoutStable = static_cast<jint>(0x00000100);
+    constexpr jint systemUiLayoutHideNavigation = static_cast<jint>(0x00000200);
+    constexpr jint systemUiLayoutFullscreen = static_cast<jint>(0x00000400);
+    constexpr jint systemUiLightStatusBar = static_cast<jint>(0x00002000);
+    constexpr jint systemUiLightNavigationBar = static_cast<jint>(0x00000010);
+    constexpr jint pageBackgroundColor = static_cast<jint>(0xFFFBF6EFu);
+
+    if (sdk >= 21) {
+        window.callMethod<void>("clearFlags", "(I)V",
+                                flagTranslucentStatus | flagTranslucentNavigation);
+        window.callMethod<void>("addFlags", "(I)V", flagDrawsSystemBarBackgrounds);
+        window.callMethod<void>("setStatusBarColor", "(I)V", jint(0x00000000));
+        window.callMethod<void>("setNavigationBarColor", "(I)V", pageBackgroundColor);
+    }
+
+    if (sdk >= 30)
+        window.callMethod<void>("setDecorFitsSystemWindows", "(Z)V", jboolean(false));
+
+    if (sdk >= 29)
+        window.callMethod<void>("setNavigationBarContrastEnforced", "(Z)V", jboolean(false));
+
+    if (sdk >= 28) {
+        QJniObject attributes =
+            window.callObjectMethod("getAttributes", "()Landroid/view/WindowManager$LayoutParams;");
+        if (attributes.isValid()) {
+            attributes.setField<jint>("layoutInDisplayCutoutMode", jint(1));
+            window.callMethod<void>("setAttributes",
+                                    "(Landroid/view/WindowManager$LayoutParams;)V",
+                                    attributes.object<jobject>());
+        }
+    }
+
+    jint systemUiFlags = systemUiLayoutStable | systemUiLayoutHideNavigation | systemUiLayoutFullscreen;
+    if (sdk >= 23)
+        systemUiFlags |= systemUiLightStatusBar;
+    if (sdk >= 26)
+        systemUiFlags |= systemUiLightNavigationBar;
+    decorView.callMethod<void>("setSystemUiVisibility", "(I)V", systemUiFlags);
+}
 #endif
 
 QRect screenGeometryRect()
@@ -114,7 +180,7 @@ int screenGeometryBottomInset()
     return qMax(0, geometry.y() + geometry.height() - (available.y() + available.height()));
 }
 
-int topSafeAreaInset()
+int resolvedTopSafeAreaInset()
 {
 #ifdef Q_OS_ANDROID
     int inset = androidWindowTopInset();
@@ -142,6 +208,18 @@ QSize PlatformLayoutPolicy::availableScreenSize()
     return screenGeometryRect().size();
 }
 
+void PlatformLayoutPolicy::applyAndroidEdgeToEdge()
+{
+#ifdef Q_OS_ANDROID
+    applyWindowEdgeToEdge();
+#endif
+}
+
+int PlatformLayoutPolicy::topSafeAreaInset()
+{
+    return resolvedTopSafeAreaInset();
+}
+
 QRect PlatformLayoutPolicy::safeContentRect(int margin)
 {
     QRect rect = screenGeometryRect();
@@ -162,6 +240,46 @@ QRect PlatformLayoutPolicy::safeContentRect(int margin)
 QRect PlatformLayoutPolicy::dialogAvailableRect(int margin)
 {
     return safeContentRect(margin);
+}
+
+QSize PlatformLayoutPolicy::dialogSizeForRole(DialogRole role, const QSize &contentHint)
+{
+#ifdef Q_OS_ANDROID
+    const QRect available = dialogAvailableRect();
+    if (available.width() <= 0 || available.height() <= 0)
+        return contentHint;
+
+    qreal widthRatio = 0.82;
+    int minHeight = 168;
+    int maxHeight = qMin(available.height(), 340);
+
+    switch (role) {
+    case DialogRole::Input:
+        widthRatio = 0.86;
+        minHeight = 236;
+        maxHeight = qMin(available.height(), 340);
+        break;
+    case DialogRole::LargeContent:
+        widthRatio = 0.90;
+        minHeight = 420;
+        maxHeight = qMin(available.height(), 680);
+        break;
+    case DialogRole::Alert:
+    default:
+        minHeight = 176;
+        maxHeight = qMin(available.height(), 320);
+        break;
+    }
+
+    const int preferredWidth = qBound(300, qRound(available.width() * widthRatio), available.width());
+    const int contentHeight = contentHint.isValid() ? contentHint.height() : 0;
+    QSize target(preferredWidth, qBound(minHeight, contentHeight, maxHeight));
+    if (contentHint.width() > target.width())
+        target.setWidth(qMin(contentHint.width(), available.width()));
+    return target.boundedTo(available.size());
+#else
+    return contentHint;
+#endif
 }
 
 void PlatformLayoutPolicy::centerWidgetOnSafeArea(QWidget *widget, int margin)

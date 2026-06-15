@@ -415,6 +415,25 @@ void normalizeAndroidHorizontalPosition(QWidget *root)
 #endif
 }
 
+void applyAndroidWindowInsets(QWidget *central)
+{
+#ifdef Q_OS_ANDROID
+    if (!central || !central->layout())
+        return;
+
+    LifeBalanceAI::Ui::PlatformLayoutPolicy::applyAndroidEdgeToEdge();
+    central->setAttribute(Qt::WA_StyledBackground, true);
+    central->layout()->setContentsMargins(
+        0,
+        LifeBalanceAI::Ui::PlatformLayoutPolicy::topSafeAreaInset(),
+        0,
+        0);
+    central->layout()->invalidate();
+#else
+    Q_UNUSED(central);
+#endif
+}
+
 } // namespace
 
 // Force QTextEdit::document()->setTextWidth() from the nearest QScrollArea
@@ -2057,6 +2076,7 @@ connect(m_deepAnalysisService, &LifeBalanceAI::Services::DeepAnalysisService::an
 
 #ifdef Q_OS_ANDROID
     QTimer::singleShot(0, this, [this]() {
+        applyAndroidWindowInsets(centralWidget());
         if (QScreen *screen = QGuiApplication::primaryScreen())
             resize(screen->geometry().size());
         relaxAndroidWidthConstraints(this);
@@ -2064,6 +2084,10 @@ connect(m_deepAnalysisService, &LifeBalanceAI::Services::DeepAnalysisService::an
             centralWidget()->layout()->invalidate();
         if (ui && ui->stackedWidget)
             ui->stackedWidget->updateGeometry();
+        updateBottomNavVisibility();
+    });
+    QTimer::singleShot(250, this, [this]() {
+        applyAndroidWindowInsets(centralWidget());
         updateBottomNavVisibility();
     });
 #endif
@@ -2546,6 +2570,7 @@ void MainWindow::resizeEvent(QResizeEvent *event)
     QMainWindow::resizeEvent(event);
 #ifdef Q_OS_ANDROID
     QTimer::singleShot(0, this, [this]() {
+        applyAndroidWindowInsets(centralWidget());
         normalizeAndroidHorizontalPosition(this);
         if (centralWidget() && centralWidget()->layout())
             centralWidget()->layout()->invalidate();
@@ -2691,6 +2716,7 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
 void MainWindow::applyWarmVisualPolish()
 {
 #ifdef Q_OS_ANDROID
+    applyAndroidWindowInsets(centralWidget());
     setMinimumSize(0, 0);
     if (QScreen *screen = QGuiApplication::primaryScreen())
         resize(screen->geometry().size());

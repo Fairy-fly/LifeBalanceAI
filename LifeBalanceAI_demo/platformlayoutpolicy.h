@@ -12,10 +12,19 @@ namespace Ui {
 class PlatformLayoutPolicy
 {
 public:
+    enum class DialogRole {
+        Alert,
+        Input,
+        LargeContent
+    };
+
     static bool isMobileRuntime();
     static QSize availableScreenSize();
+    static void applyAndroidEdgeToEdge();
+    static int topSafeAreaInset();
     static QRect safeContentRect(int margin = 0);
     static QRect dialogAvailableRect(int margin = 18);
+    static QSize dialogSizeForRole(DialogRole role, const QSize &contentHint = QSize());
     static void centerWidgetOnSafeArea(QWidget *widget, int margin = 18);
     static int bottomSafeAreaInset();
     static int bottomNavContentHeight();

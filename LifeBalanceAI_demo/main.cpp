@@ -1,5 +1,6 @@
 ﻿#include "mainwindow.h"
 #include "databasemanager.h"
+#include "platformlayoutpolicy.h"
 #include "thememanager.h"
 
 #include <QApplication>
@@ -10,6 +11,7 @@
 #include <QTextStream>
 #include <QDir>
 #include <QMessageBox>
+#include <QTimer>
 #include <QWindow>
 
 int main(int argc, char *argv[])
@@ -151,9 +153,19 @@ int main(int argc, char *argv[])
     }
     qInfo() << "Database connection established successfully.";
 
+#ifdef Q_OS_ANDROID
+    LifeBalanceAI::Ui::PlatformLayoutPolicy::applyAndroidEdgeToEdge();
+#endif
+
     MainWindow w;
 #ifdef Q_OS_ANDROID
     w.showMaximized();
+    QTimer::singleShot(0, []() {
+        LifeBalanceAI::Ui::PlatformLayoutPolicy::applyAndroidEdgeToEdge();
+    });
+    QTimer::singleShot(250, []() {
+        LifeBalanceAI::Ui::PlatformLayoutPolicy::applyAndroidEdgeToEdge();
+    });
 #else
     w.show();
 #endif

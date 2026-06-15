@@ -26,6 +26,17 @@ void repolish(QWidget *widget)
 void centerOnParent(QWidget *widget)
 {
 #ifdef Q_OS_ANDROID
+    if (widget) {
+        widget->adjustSize();
+        const QSize preliminary = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogSizeForRole(
+            LifeBalanceAI::Ui::PlatformLayoutPolicy::DialogRole::Alert,
+            widget->sizeHint().expandedTo(widget->minimumSizeHint()));
+        widget->resize(preliminary.width(), widget->height());
+        widget->adjustSize();
+        widget->resize(LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogSizeForRole(
+            LifeBalanceAI::Ui::PlatformLayoutPolicy::DialogRole::Alert,
+            widget->sizeHint().expandedTo(widget->minimumSizeHint())));
+    }
     LifeBalanceAI::Ui::PlatformLayoutPolicy::centerWidgetOnSafeArea(widget);
     return;
 #else
@@ -47,8 +58,10 @@ void placeInputDialogForKeyboard(QWidget *widget)
 
     QRect available = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogAvailableRect();
     widget->adjustSize();
-    if (widget->width() > available.width() || widget->height() > available.height())
-        widget->resize(widget->size().boundedTo(available.size()));
+    const QSize targetSize = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogSizeForRole(
+        LifeBalanceAI::Ui::PlatformLayoutPolicy::DialogRole::Input,
+        widget->sizeHint().expandedTo(widget->minimumSizeHint()));
+    widget->resize(targetSize.boundedTo(available.size()));
 
     const int x = available.x() + (available.width() - widget->width()) / 2;
     const int y = available.y() + qMax(24, available.height() / 7);
@@ -146,6 +159,14 @@ void AnimatedDialog::showAnimated()
     centerOnParent(this);
 #ifdef Q_OS_ANDROID
     show();
+    QTimer::singleShot(0, this, [this]() {
+        if (isVisible())
+            centerOnParent(this);
+    });
+    QTimer::singleShot(120, this, [this]() {
+        if (isVisible())
+            centerOnParent(this);
+    });
     return;
 #else
     QPoint end = pos();
