@@ -10,6 +10,7 @@
 #include <QPainterPath>
 #include <QScreen>
 #include <QStyle>
+#include <QTimer>
 
 namespace {
 
@@ -35,6 +36,25 @@ void centerOnParent(QWidget *widget)
     int x = topLeft.x() + (parentRect.width() - widget->width()) / 2;
     int y = topLeft.y() + (parentRect.height() - widget->height()) / 2;
     widget->move(x, y);
+#endif
+}
+
+void placeInputDialogForKeyboard(QWidget *widget)
+{
+#ifdef Q_OS_ANDROID
+    if (!widget)
+        return;
+
+    QRect available = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogAvailableRect();
+    widget->adjustSize();
+    if (widget->width() > available.width() || widget->height() > available.height())
+        widget->resize(widget->size().boundedTo(available.size()));
+
+    const int x = available.x() + (available.width() - widget->width()) / 2;
+    const int y = available.y() + qMax(24, available.height() / 7);
+    widget->move(x, qMin(y, available.bottom() - widget->height()));
+#else
+    centerOnParent(widget);
 #endif
 }
 
@@ -345,11 +365,16 @@ QString AnimatedInputDialog::textValue() const { return m_result; }
 
 void AnimatedInputDialog::showAnimated()
 {
-    centerOnParent(this);
 #ifdef Q_OS_ANDROID
+    placeInputDialogForKeyboard(this);
     show();
+    QTimer::singleShot(160, this, [this]() {
+        if (isVisible())
+            placeInputDialogForKeyboard(this);
+    });
     return;
 #else
+    centerOnParent(this);
     QPoint end = pos();
     QPoint start = end + QPoint(0, 8);
     move(start);
