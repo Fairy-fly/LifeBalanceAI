@@ -84,6 +84,8 @@
 
 #include <QScrollArea>
 
+#include <QTabBar>
+
 
 
 #include <QCheckBox>
@@ -422,10 +424,11 @@ void applyAndroidWindowInsets(QWidget *central)
         return;
 
     LifeBalanceAI::Ui::PlatformLayoutPolicy::applyAndroidEdgeToEdge();
+    const int topInset = qMin(LifeBalanceAI::Ui::PlatformLayoutPolicy::topSafeAreaInset(), 44);
     central->setAttribute(Qt::WA_StyledBackground, true);
     central->layout()->setContentsMargins(
         0,
-        LifeBalanceAI::Ui::PlatformLayoutPolicy::topSafeAreaInset(),
+        topInset,
         0,
         0);
     central->layout()->invalidate();
@@ -2013,7 +2016,8 @@ connect(m_deepAnalysisService, &LifeBalanceAI::Services::DeepAnalysisService::an
             if (p4Layout) {
 #ifdef Q_OS_ANDROID
                 p4Layout->setStretch(2, 1);
-                p4Layout->setContentsMargins(0, 0, 0, 0);
+                p4Layout->setContentsMargins(14, 8, 14, 8);
+                p4Layout->setSpacing(10);
                 p4->installEventFilter(this);
 #endif
 
@@ -3081,8 +3085,8 @@ void MainWindow::applyWarmVisualPolish()
         if (auto *layout = qobject_cast<QVBoxLayout *>(ui->page_4->layout())) {
 #ifdef Q_OS_ANDROID
             const int bottomMargin = 8;
-            layout->setContentsMargins(8, 0, 8, bottomMargin);
-            layout->setSpacing(3);
+            layout->setContentsMargins(14, 8, 14, bottomMargin);
+            layout->setSpacing(10);
             layout->setAlignment(Qt::AlignTop);
 #else
             layout->setContentsMargins(20, 16, 20, 12);
@@ -3093,8 +3097,8 @@ void MainWindow::applyWarmVisualPolish()
             ui->frameGoal->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
             if (auto *goalLayout = qobject_cast<QVBoxLayout *>(ui->frameGoal->layout())) {
 #ifdef Q_OS_ANDROID
-                goalLayout->setContentsMargins(12, 6, 12, 6);
-                goalLayout->setSpacing(2);
+                goalLayout->setContentsMargins(14, 10, 14, 10);
+                goalLayout->setSpacing(6);
 #else
                 goalLayout->setContentsMargins(16, 14, 16, 14);
                 goalLayout->setSpacing(8);
@@ -3126,9 +3130,9 @@ void MainWindow::applyWarmVisualPolish()
                     m_btnGoalToggle->setObjectName(QStringLiteral("btnGoalToggle"));
                     m_btnGoalToggle->setCursor(Qt::PointingHandCursor);
 #ifdef Q_OS_ANDROID
-                    m_btnGoalToggle->setMinimumSize(64, 26);
-                    m_btnGoalToggle->setMaximumHeight(28);
-                    headerRow->setMinimumHeight(28);
+                    m_btnGoalToggle->setMinimumSize(58, 28);
+                    m_btnGoalToggle->setMaximumSize(66, 30);
+                    headerRow->setMinimumHeight(30);
 #else
                     m_btnGoalToggle->setMinimumSize(76, 40);
                     m_btnGoalToggle->setMaximumHeight(44);
@@ -3294,8 +3298,8 @@ void MainWindow::applyWarmVisualPolish()
 
             auto *contentLayout = new QVBoxLayout(content);
 #ifdef Q_OS_ANDROID
-            contentLayout->setContentsMargins(5, 4, 5, 10);
-            contentLayout->setSpacing(12);
+            contentLayout->setContentsMargins(2, 6, 2, 10);
+            contentLayout->setSpacing(10);
 #else
             contentLayout->setContentsMargins(14, 28, 14, 42);
             contentLayout->setSpacing(58);
@@ -3315,7 +3319,7 @@ void MainWindow::applyWarmVisualPolish()
             disclaimer->setObjectName(QStringLiteral("legalDisclaimer"));
             disclaimer->setAlignment(Qt::AlignCenter);
 #ifdef Q_OS_ANDROID
-            contentLayout->addSpacing(42);
+            contentLayout->addSpacing(18);
             disclaimer->setMinimumHeight(24);
             disclaimer->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
 #endif
@@ -3350,9 +3354,11 @@ void MainWindow::applyWarmVisualPolish()
         ensurePlanTabScroll(ui->tabDayAfter);
 
         if (ui->tabWidgetDays) {
-            ui->tabWidgetDays->setMinimumHeight(560);
+            ui->tabWidgetDays->setMinimumHeight(540);
             ui->tabWidgetDays->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 #ifdef Q_OS_ANDROID
+            ui->tabWidgetDays->tabBar()->setExpanding(true);
+            ui->tabWidgetDays->tabBar()->setUsesScrollButtons(false);
             ui->tabWidgetDays->setMaximumHeight(QWIDGETSIZE_MAX);
 #endif
         }
@@ -3363,8 +3369,8 @@ void MainWindow::applyWarmVisualPolish()
         for (QGroupBox *group : ui->tabWidgetDays->findChildren<QGroupBox *>()) {
             group->setProperty("class", QStringLiteral("planCard"));
 #ifdef Q_OS_ANDROID
-            group->setMinimumHeight(124);
-            group->setMaximumHeight(128);
+            group->setMinimumHeight(132);
+            group->setMaximumHeight(138);
 #else
             group->setMinimumHeight(218);
             group->setMaximumHeight(242);
@@ -3372,8 +3378,8 @@ void MainWindow::applyWarmVisualPolish()
             group->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
             if (auto *row = qobject_cast<QHBoxLayout *>(group->layout())) {
 #ifdef Q_OS_ANDROID
-                row->setContentsMargins(7, 6, 7, 5);
-                row->setSpacing(8);
+                row->setContentsMargins(12, 10, 12, 10);
+                row->setSpacing(10);
 #else
                 row->setContentsMargins(16, 22, 16, 16);
                 row->setSpacing(24);
@@ -3409,9 +3415,9 @@ void MainWindow::applyWarmVisualPolish()
 
                 if (actionColumn) {
 #ifdef Q_OS_ANDROID
-                    actionColumn->setMinimumWidth(66);
-                    actionColumn->setMaximumWidth(72);
-                    actionColumn->setMinimumHeight(70);
+                    actionColumn->setMinimumWidth(58);
+                    actionColumn->setMaximumWidth(66);
+                    actionColumn->setMinimumHeight(72);
 #else
                     actionColumn->setMinimumWidth(112);
                     actionColumn->setMaximumWidth(128);
@@ -3420,7 +3426,7 @@ void MainWindow::applyWarmVisualPolish()
                     actionColumn->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Preferred);
                     if (auto *actionLayout = qobject_cast<QVBoxLayout *>(actionColumn->layout())) {
 #ifdef Q_OS_ANDROID
-                        actionLayout->setSpacing(7);
+                        actionLayout->setSpacing(8);
 #else
                         actionLayout->setSpacing(24);
 #endif
@@ -3439,8 +3445,8 @@ void MainWindow::applyWarmVisualPolish()
         for (QTextEdit *textEdit : ui->tabWidgetDays->findChildren<QTextEdit *>()) {
             textEdit->setProperty("class", QStringLiteral("planText"));
 #ifdef Q_OS_ANDROID
-            textEdit->setMinimumHeight(76);
-            textEdit->setMaximumHeight(80);
+            textEdit->setMinimumHeight(84);
+            textEdit->setMaximumHeight(90);
 #else
             textEdit->setMinimumHeight(120);
 #endif
@@ -3454,7 +3460,7 @@ void MainWindow::applyWarmVisualPolish()
             QFont planFont = textEdit->font();
             planFont.setWeight(QFont::Normal);
 #ifdef Q_OS_ANDROID
-            planFont.setPointSize(12);
+            planFont.setPointSize(11);
 #endif
             textEdit->setFont(planFont);
             textEdit->document()->setDefaultFont(planFont);
@@ -3477,8 +3483,8 @@ void MainWindow::applyWarmVisualPolish()
             if (button->objectName().startsWith(QStringLiteral("btnFeedback")) ||
                 button->objectName() == QStringLiteral("btnAdjust")) {
 #ifdef Q_OS_ANDROID
-                button->setMinimumSize(62, 28);
-                button->setMaximumSize(72, 30);
+                button->setMinimumSize(56, 28);
+                button->setMaximumSize(66, 30);
 #else
                 button->setMinimumSize(112, 48);
                 button->setMaximumSize(128, 52);
@@ -3493,9 +3499,9 @@ void MainWindow::applyWarmVisualPolish()
                     contentLayout->activate();
                     const int groupCount = content->findChildren<QGroupBox *>().size();
 #ifdef Q_OS_ANDROID
-                    const int fixedHeight = 4 + 10 + qMax(1, groupCount) * 128
-                                          + qMax(0, groupCount - 1) * 14
-                                          + 34 + 22;
+                    const int fixedHeight = 6 + 10 + qMax(1, groupCount) * 138
+                                          + qMax(0, groupCount - 1) * 10
+                                          + 24 + 18;
 #else
                     const int fixedHeight = 28 + 42 + qMax(1, groupCount) * 242 + qMax(0, groupCount - 1) * 58;
 #endif
@@ -3537,9 +3543,9 @@ void MainWindow::updateGoalCollapseState()
 QScrollArea *goalScroll = ui->frameGoal->findChild<QScrollArea *>(QStringLiteral("goalContentScroll"));
 
 #ifdef Q_OS_ANDROID
-    const int expandedScrollH = 118;
-    const int collapsedFrameH = 56;
-    const int expandedFrameH = 174;
+    const int expandedScrollH = 96;
+    const int collapsedFrameH = 64;
+    const int expandedFrameH = 156;
 #else
     const int expandedScrollH = 184;
     const int collapsedFrameH = 120;
@@ -3559,12 +3565,12 @@ QScrollArea *goalScroll = ui->frameGoal->findChild<QScrollArea *>(QStringLiteral
         const int navH = (m_bottomNav && m_bottomNav->isVisible())
                              ? LifeBalanceAI::Ui::PlatformLayoutPolicy::bottomNavHeight()
                              : 0;
-        const int topBarH = 42;
-        const int spacingBudget = 12;
+        const int topBarH = 94;
+        const int spacingBudget = 28;
         const int stackH = qMax(0, viewportH - navH);
         const int desired = stackH - topBarH - targetFrameH - spacingBudget;
-        return m_goalExpanded ? qBound(340, desired, 430)
-                              : qBound(500, desired, 560);
+        return m_goalExpanded ? qBound(330, desired, 420)
+                               : qBound(460, desired, 540);
     };
     const int targetTabH = ui->tabWidgetDays ? homeTabTargetHeight() : 0;
 #endif
@@ -3812,6 +3818,18 @@ void MainWindow::setupPage4Widgets()
 
 
 
+    auto *homeHeaderCard = new QFrame(page4);
+    homeHeaderCard->setObjectName(QStringLiteral("homeHeaderCard"));
+    homeHeaderCard->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    auto *homeHeaderLayout = new QVBoxLayout(homeHeaderCard);
+#ifdef Q_OS_ANDROID
+    homeHeaderLayout->setContentsMargins(12, 10, 12, 10);
+    homeHeaderLayout->setSpacing(8);
+#else
+    homeHeaderLayout->setContentsMargins(16, 14, 16, 14);
+    homeHeaderLayout->setSpacing(10);
+#endif
+
     auto *topBar = new QHBoxLayout;
 
 
@@ -3847,10 +3865,10 @@ void MainWindow::setupPage4Widgets()
     btnHamburger->setObjectName(QStringLiteral("btnHamburger"));
 
 #ifdef Q_OS_ANDROID
-    btnHamburger->setFixedSize(40, 40);
+    btnHamburger->setFixedSize(36, 36);
     QFont hamburgerFont = btnHamburger->font();
-    hamburgerFont.setPointSize(22);
-    hamburgerFont.setBold(true);
+    hamburgerFont.setPointSize(20);
+    hamburgerFont.setBold(false);
     btnHamburger->setFont(hamburgerFont);
 #else
     btnHamburger->setFixedSize(48, 48);
@@ -3892,16 +3910,24 @@ void MainWindow::setupPage4Widgets()
 
     topBar->addWidget(btnHamburger);
 
+        auto *homeHeaderText = new QWidget(homeHeaderCard);
+        homeHeaderText->setObjectName(QStringLiteral("homeHeaderText"));
+        auto *homeHeaderTextLayout = new QVBoxLayout(homeHeaderText);
+        homeHeaderTextLayout->setContentsMargins(0, 0, 0, 0);
+        homeHeaderTextLayout->setSpacing(1);
 
+        auto *homeHeaderTitle = new QLabel(QString::fromUtf8("\u4eca\u65e5\u8ba1\u5212"), homeHeaderText);
+        homeHeaderTitle->setObjectName(QStringLiteral("homeHeaderTitle"));
+        homeHeaderTitle->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+        homeHeaderTextLayout->addWidget(homeHeaderTitle);
 
-        streakWidget->setMinimumWidth(0);
-#ifdef Q_OS_ANDROID
-        streakWidget->setMinimumHeight(40);
-#else
-        streakWidget->setMinimumHeight(48);
-#endif
-        streakWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-        topBar->addWidget(streakWidget, 1);
+        auto *homeHeaderSubtitle = new QLabel(QString::fromUtf8("\u7528\u8f7b\u91cf\u8bb0\u5f55\uff0c\u966a\u4f60\u628a\u5065\u5eb7\u4e60\u60ef\u7a33\u7a33\u505a\u4e0b\u53bb"), homeHeaderText);
+        homeHeaderSubtitle->setObjectName(QStringLiteral("homeHeaderSubtitle"));
+        homeHeaderSubtitle->setWordWrap(false);
+        homeHeaderSubtitle->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
+        homeHeaderTextLayout->addWidget(homeHeaderSubtitle);
+
+        topBar->addWidget(homeHeaderText, 1);
 
 
 
@@ -3960,8 +3986,8 @@ void MainWindow::setupPage4Widgets()
 
 
 #ifdef Q_OS_ANDROID
-    m_btnViewYesterday->setMinimumSize(100, 40);
-    m_btnViewYesterday->setMaximumSize(112, 42);
+    m_btnViewYesterday->setMinimumSize(82, 32);
+    m_btnViewYesterday->setMaximumSize(92, 34);
 #else
     m_btnViewYesterday->setMinimumSize(132, 48);
     m_btnViewYesterday->setMaximumSize(148, 52);
@@ -3982,7 +4008,19 @@ void MainWindow::setupPage4Widgets()
 
 
 
-    mainLayout->insertLayout(0, topBar);
+    homeHeaderLayout->addLayout(topBar);
+    if (streakWidget) {
+        streakWidget->setMinimumWidth(0);
+#ifdef Q_OS_ANDROID
+        streakWidget->setMinimumHeight(34);
+        streakWidget->setMaximumHeight(36);
+#else
+        streakWidget->setMinimumHeight(40);
+#endif
+        streakWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+        homeHeaderLayout->addWidget(streakWidget);
+    }
+    mainLayout->insertWidget(0, homeHeaderCard);
 
 
 
@@ -8087,8 +8125,8 @@ void MainWindow::updatePlanUI()
         if (!textEdit)
             return;
 #ifdef Q_OS_ANDROID
-        textEdit->setMinimumHeight(76);
-        textEdit->setMaximumHeight(80);
+        textEdit->setMinimumHeight(84);
+        textEdit->setMaximumHeight(90);
 #else
         textEdit->setMinimumHeight(120);
         textEdit->setMaximumHeight(QWIDGETSIZE_MAX);
@@ -8101,7 +8139,7 @@ void MainWindow::updatePlanUI()
         QFont planFont = textEdit->font();
         planFont.setWeight(QFont::Normal);
 #ifdef Q_OS_ANDROID
-        planFont.setPointSize(12);
+        planFont.setPointSize(11);
 #endif
         textEdit->setFont(planFont);
         textEdit->document()->setDefaultFont(planFont);
@@ -8125,7 +8163,7 @@ void MainWindow::updatePlanUI()
 
     for (QGroupBox *group : ui->tabWidgetDays->findChildren<QGroupBox *>()) {
 #ifdef Q_OS_ANDROID
-        constexpr int cardHeight = 128;
+        constexpr int cardHeight = 138;
 #else
         constexpr int cardHeight = 242;
 #endif
@@ -8400,8 +8438,9 @@ void MainWindow::onViewYesterdayClicked()
 
 #ifdef Q_OS_ANDROID
     const QRect available = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogAvailableRect();
-    reviewDialog.setFixedSize(qMax(280, qMin(available.width() - 36, 340)),
-                              qMax(360, qMin(available.height() - 80, 460)));
+    const int dialogW = qBound(300, available.width() * 86 / 100, 360);
+    const int dialogH = qBound(320, available.height() * 58 / 100, 420);
+    reviewDialog.setFixedSize(dialogW, dialogH);
 #else
     reviewDialog.resize(460, 520);
     reviewDialog.setMinimumSize(420, 440);
@@ -8409,7 +8448,7 @@ void MainWindow::onViewYesterdayClicked()
 
     auto *layout = new QVBoxLayout(&reviewDialog);
 #ifdef Q_OS_ANDROID
-    layout->setContentsMargins(14, 14, 14, 14);
+    layout->setContentsMargins(16, 16, 16, 16);
     layout->setSpacing(10);
 #else
     layout->setContentsMargins(18, 18, 18, 18);
@@ -8418,7 +8457,7 @@ void MainWindow::onViewYesterdayClicked()
 
     auto *title = new QLabel(tr("昨日规划回顾"), &reviewDialog);
     title->setObjectName(QStringLiteral("dialogTitle"));
-    title->setAlignment(Qt::AlignCenter);
+    title->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     layout->addWidget(title);
 
     auto *content = new QTextEdit(&reviewDialog);
@@ -8434,16 +8473,17 @@ void MainWindow::onViewYesterdayClicked()
 
     auto *closeButton = new QPushButton(tr("知道了"), &reviewDialog);
     closeButton->setProperty("class", QStringLiteral("primary"));
-    closeButton->setMinimumHeight(42);
+    closeButton->setMinimumHeight(40);
+    closeButton->setMaximumHeight(44);
     layout->addWidget(closeButton);
     connect(closeButton, &QPushButton::clicked, &reviewDialog, &QDialog::accept);
 
     reviewDialog.setStyleSheet(QStringLiteral(
-        "QDialog#yesterdayReviewDialog{background:#FEFEFE;border:1px solid #E8E8E8;border-radius:12px;}"
-        "QLabel#dialogTitle{font-family:\"MiSans Bold\",\"MiSans\",\"Noto Sans SC\",\"Microsoft YaHei UI\";"
-        "font-size:20px;font-weight:700;color:#1A1A1A;background:transparent;}"
-        "QTextEdit#yesterdayReviewText{background:#FFFFFF;border:1px solid #E8E8E8;border-radius:8px;"
-        "padding:10px;color:#333333;font-size:14px;line-height:1.6;}"
+        "QDialog#yesterdayReviewDialog{background:#FFFDF9;border:1px solid #E8DED2;border-radius:16px;}"
+        "QLabel#dialogTitle{font-family:\"MiSans Medium\",\"MiSans\",\"Noto Sans SC\",\"Microsoft YaHei UI\";"
+        "font-size:16px;font-weight:600;color:#1F2A24;background:transparent;padding:0 0 2px 0;}"
+        "QTextEdit#yesterdayReviewText{background:#FFFDF9;border:1px solid #F1E9DF;border-radius:10px;"
+        "padding:10px;color:#48423C;font-size:13px;line-height:1.6;}"
     ));
 
 #ifdef Q_OS_ANDROID
