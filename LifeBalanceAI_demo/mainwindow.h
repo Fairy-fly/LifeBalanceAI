@@ -190,6 +190,7 @@ private:
     void saveAutoLoginSessionIfNeeded(int userId, const QString &role);
     void clearAutoLoginSession();
     void logoutToLogin();
+    void confirmLogoutToLogin();
     bool tryAutoLogin();
     void handleAuthenticatedUser(const LifeBalanceAI::Models::AuthFlowResult &result);
     void showLoginSuccessTransition(const QString &welcomeText, std::function<void()> routeAction);

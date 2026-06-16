@@ -3,6 +3,7 @@
 #include "platformlayoutpolicy.h"
 
 #include <QApplication>
+#include <QEventLoop>
 #include <QGuiApplication>
 #include <QFrame>
 #include <QHBoxLayout>
@@ -300,6 +301,113 @@ void AnimatedDialog::success(QWidget *parent, const QString &title, const QStrin
 
 bool AnimatedDialog::confirm(QWidget *parent, const QString &title, const QString &message)
 {
+#ifdef Q_OS_ANDROID
+    QWidget *host = parent ? parent->window() : QApplication::activeWindow();
+    if (host) {
+        auto *overlay = new QWidget(host);
+        overlay->setObjectName(QStringLiteral("confirmDialogOverlay"));
+        overlay->setAttribute(Qt::WA_StyledBackground, true);
+        overlay->setGeometry(host->rect());
+        overlay->setStyleSheet(QStringLiteral(
+            "#confirmDialogOverlay{background:rgba(28,24,20,92);}"));
+
+        auto *panel = new QFrame(overlay);
+        panel->setObjectName(QStringLiteral("confirmDialogPanel"));
+        panel->setAttribute(Qt::WA_StyledBackground, true);
+        panel->setStyleSheet(QStringLiteral(
+            "QFrame#confirmDialogPanel{"
+            "background:#FFFDF9;border:1px solid #E8DED2;border-radius:14px;"
+            "}"
+            "QLabel#confirmDialogTitle{"
+            "color:#B86A3F;font-size:17px;font-weight:600;"
+            "font-family:\"MiSans Medium\",\"MiSans\",\"Noto Sans SC\",\"Microsoft YaHei UI\",sans-serif;"
+            "background:transparent;"
+            "}"
+            "QLabel#confirmDialogMessage{"
+            "color:#333333;font-size:14px;font-weight:400;line-height:1.45;"
+            "font-family:\"MiSans\",\"Noto Sans SC\",\"Microsoft YaHei UI\",sans-serif;"
+            "background:transparent;"
+            "}"
+            "QPushButton#confirmCancelButton{"
+            "min-height:38px;border-radius:12px;background:#FFFFFF;"
+            "border:1px solid #E8DED2;color:#333333;font-size:13px;font-weight:500;"
+            "font-family:\"MiSans Medium\",\"MiSans\",\"Noto Sans SC\",\"Microsoft YaHei UI\",sans-serif;"
+            "}"
+            "QPushButton#confirmOkButton{"
+            "min-height:38px;border-radius:12px;background:#FFF3F1;"
+            "border:1px solid #E9B9B2;color:#B7645C;font-size:13px;font-weight:600;"
+            "font-family:\"MiSans Medium\",\"MiSans\",\"Noto Sans SC\",\"Microsoft YaHei UI\",sans-serif;"
+            "}"
+            "QPushButton#confirmCancelButton:pressed{background:#F6F1EA;}"
+            "QPushButton#confirmOkButton:pressed{background:#F8E2DE;border-color:#D48A82;}"));
+
+        auto *layout = new QVBoxLayout(panel);
+        layout->setContentsMargins(24, 22, 24, 20);
+        layout->setSpacing(14);
+
+        auto *titleLabel = new QLabel(title, panel);
+        titleLabel->setObjectName(QStringLiteral("confirmDialogTitle"));
+        titleLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+        layout->addWidget(titleLabel);
+
+        auto *messageLabel = new QLabel(message, panel);
+        messageLabel->setObjectName(QStringLiteral("confirmDialogMessage"));
+        messageLabel->setWordWrap(true);
+        messageLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+        layout->addWidget(messageLabel);
+
+        auto *buttons = new QHBoxLayout();
+        buttons->setContentsMargins(0, 8, 0, 0);
+        buttons->setSpacing(10);
+        buttons->addStretch();
+
+        auto *cancel = new QPushButton(QString::fromUtf8("\u53d6\u6d88"), panel);
+        cancel->setObjectName(QStringLiteral("confirmCancelButton"));
+        cancel->setMinimumSize(92, 38);
+        cancel->setMaximumHeight(42);
+        cancel->setCursor(Qt::PointingHandCursor);
+        buttons->addWidget(cancel);
+
+        auto *ok = new QPushButton(QString::fromUtf8("\u786e\u8ba4"), panel);
+        ok->setObjectName(QStringLiteral("confirmOkButton"));
+        ok->setMinimumSize(92, 38);
+        ok->setMaximumHeight(42);
+        ok->setCursor(Qt::PointingHandCursor);
+        buttons->addWidget(ok);
+        layout->addLayout(buttons);
+
+        auto *shadow = new QGraphicsDropShadowEffect(panel);
+        shadow->setBlurRadius(24);
+        shadow->setOffset(0, 8);
+        shadow->setColor(QColor(26, 26, 26, 42));
+        panel->setGraphicsEffect(shadow);
+
+        const QRect available = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogAvailableRect(22);
+        const int targetWidth = qBound(300, available.width() * 86 / 100, available.width());
+        panel->setFixedWidth(targetWidth);
+        panel->adjustSize();
+        panel->move(available.x() + (available.width() - panel->width()) / 2,
+                    available.y() + (available.height() - panel->height()) / 2);
+
+        bool result = false;
+        QEventLoop loop;
+        connect(cancel, &QPushButton::clicked, overlay, [&]() {
+            result = false;
+            loop.quit();
+        });
+        connect(ok, &QPushButton::clicked, overlay, [&]() {
+            result = true;
+            loop.quit();
+        });
+
+        overlay->show();
+        panel->raise();
+        loop.exec();
+        overlay->deleteLater();
+        return result;
+    }
+#endif
+
     auto *dialog = new AnimatedDialog(parent, AnimStyle::RiseFromBottom);
     dialog->setTitle(title);
     dialog->setMessage(message);

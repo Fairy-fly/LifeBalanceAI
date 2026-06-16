@@ -599,6 +599,23 @@ QComboBox[class="profileDisplay"]::down-arrow {
     margin: 0;
 }
 
+QLabel[class="profileKey"] {
+    color: #666666;
+    font-size: 13px;
+    font-weight: 400;
+    padding: 1px 0;
+    background: transparent;
+}
+
+QLabel[class="profileValue"] {
+    color: #333333;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.45;
+    padding: 1px 0;
+    background: transparent;
+}
+
 QComboBox QAbstractItemView {
     background: #FFFFFF;
     border: 1px solid #BDEDD5;
@@ -879,14 +896,18 @@ QTabBar::tab:selected {
 }
 
 QCheckBox {
-    spacing: 8px;
+    spacing: 10px;
     color: #333333;
+    font-size: 14px;
+    font-weight: 400;
+    min-height: 32px;
+    padding: 0;
 }
 
 QCheckBox::indicator {
-    width: 18px;
-    height: 18px;
-    border-radius: 5px;
+    width: 20px;
+    height: 20px;
+    border-radius: 7px;
     border: 1px solid #D8CAB9;
     background: #FFFFFF;
 }

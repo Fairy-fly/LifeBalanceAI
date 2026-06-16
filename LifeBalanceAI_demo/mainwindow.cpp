@@ -2124,7 +2124,7 @@ void MainWindow::addRememberLoginControl()
     remember->setObjectName(QStringLiteral("chkRememberLogin"));
     remember->setChecked(true);
     remember->setCursor(Qt::PointingHandCursor);
-    remember->setMinimumHeight(34);
+    remember->setMinimumHeight(32);
     remember->setStyleSheet(QString());
 
     int insertIndex = cardLayout->indexOf(ui->btnLogin);
@@ -2182,6 +2182,16 @@ void MainWindow::logoutToLogin()
         m_bottomNav->setVisible(false);
 
     navigateTo(AppRoute::Login, false);
+}
+
+void MainWindow::confirmLogoutToLogin()
+{
+    if (!AnimatedDialog::confirm(this,
+                                 QString::fromUtf8("退出登录"),
+                                 QString::fromUtf8("确定要退出当前账号吗？")))
+        return;
+
+    logoutToLogin();
 }
 
 bool MainWindow::tryAutoLogin()
@@ -2805,11 +2815,11 @@ void MainWindow::applyWarmVisualPolish()
     if (ui->lblLoginLogo) {
         QPixmap hero = UiFactory::loadPixmap(QStringLiteral(":/assets/app_logo.png"));
         ui->lblLoginLogo->setText(QString());
-        ui->lblLoginLogo->setMinimumHeight(224);
-        ui->lblLoginLogo->setMaximumHeight(244);
+        ui->lblLoginLogo->setMinimumHeight(168);
+        ui->lblLoginLogo->setMaximumHeight(184);
         ui->lblLoginLogo->setAlignment(Qt::AlignCenter);
         if (!hero.isNull()) {
-            ui->lblLoginLogo->setPixmap(hero.scaled(220, 220, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+            ui->lblLoginLogo->setPixmap(hero.scaled(164, 164, Qt::KeepAspectRatio, Qt::SmoothTransformation));
         }
     }
 
@@ -2827,7 +2837,7 @@ void MainWindow::applyWarmVisualPolish()
                 QFont logoFont = ui->label_5->font();
                 logoFont.setFamily(candidate);
                 logoFont.setWeight(QFont::Normal);
-                logoFont.setPointSize(34);
+                logoFont.setPointSize(29);
                 ui->label_5->setFont(logoFont);
                 break;
             }
@@ -2840,12 +2850,12 @@ void MainWindow::applyWarmVisualPolish()
 
     if (auto *loginLayout = qobject_cast<QVBoxLayout *>(ui->page_2->layout())) {
 #ifdef Q_OS_ANDROID
-        loginLayout->setContentsMargins(18, 2, 18, 18);
-        loginLayout->setSpacing(4);
-        tuneSpacer(loginLayout, 0, 2);
-        tuneSpacer(loginLayout, 4, 2);
-        tuneSpacer(loginLayout, 6, 2);
-        tuneSpacer(loginLayout, 8, 4, QSizePolicy::Expanding);
+        loginLayout->setContentsMargins(18, 8, 18, 18);
+        loginLayout->setSpacing(6);
+        tuneSpacer(loginLayout, 0, 10);
+        tuneSpacer(loginLayout, 4, 4);
+        tuneSpacer(loginLayout, 6, 10);
+        tuneSpacer(loginLayout, 8, 8, QSizePolicy::Expanding);
 #else
         loginLayout->setContentsMargins(32, 28, 32, 22);
         loginLayout->setSpacing(8);
@@ -2862,11 +2872,11 @@ void MainWindow::applyWarmVisualPolish()
         loginCard->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
         if (auto *cardLayout = qobject_cast<QVBoxLayout *>(loginCard->layout())) {
 #ifdef Q_OS_ANDROID
-            cardLayout->setContentsMargins(14, 16, 14, 16);
+            cardLayout->setContentsMargins(16, 16, 16, 14);
 #else
             cardLayout->setContentsMargins(20, 18, 20, 18);
 #endif
-            cardLayout->setSpacing(12);
+            cardLayout->setSpacing(10);
         }
     }
 
@@ -4628,7 +4638,7 @@ void MainWindow::setupSideDrawer()
 
 
         [this]() {
-            logoutToLogin();
+            confirmLogoutToLogin();
 
         });
 
@@ -8501,21 +8511,22 @@ void MainWindow::loadPage5()
 
 #ifdef Q_OS_ANDROID
     if (ui->lblPage5Title) {
-        ui->lblPage5Title->setMinimumHeight(56);
-        ui->lblPage5Title->setMaximumHeight(66);
+        ui->lblPage5Title->setMinimumHeight(46);
+        ui->lblPage5Title->setMaximumHeight(56);
         ui->lblPage5Title->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     }
     if (ui->groupBoxUserInfo) {
-        ui->groupBoxUserInfo->setFixedHeight(128);
+        ui->groupBoxUserInfo->setFixedHeight(142);
         ui->groupBoxUserInfo->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
         if (auto *form = qobject_cast<QFormLayout *>(ui->groupBoxUserInfo->layout())) {
-            form->setContentsMargins(12, 10, 12, 8);
-            form->setHorizontalSpacing(10);
-            form->setVerticalSpacing(2);
+            form->setContentsMargins(14, 12, 14, 10);
+            form->setHorizontalSpacing(14);
+            form->setVerticalSpacing(5);
+            form->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
         }
     }
     if (ui->groupBoxEditProfile) {
-        ui->groupBoxEditProfile->setFixedHeight(338);
+        ui->groupBoxEditProfile->setFixedHeight(372);
         ui->groupBoxEditProfile->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     }
 #endif
@@ -8737,9 +8748,9 @@ void MainWindow::loadPage5()
 
     if (auto *form = qobject_cast<QFormLayout *>(ui->groupBoxEditProfile->layout())) {
 #ifdef Q_OS_ANDROID
-        form->setContentsMargins(12, 8, 12, 8);
-        form->setHorizontalSpacing(10);
-        form->setVerticalSpacing(1);
+        form->setContentsMargins(14, 12, 14, 12);
+        form->setHorizontalSpacing(14);
+        form->setVerticalSpacing(6);
 #else
         form->setContentsMargins(12, 14, 12, 14);
         form->setHorizontalSpacing(16);
@@ -8747,6 +8758,7 @@ void MainWindow::loadPage5()
 #endif
         form->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
         form->setRowWrapPolicy(QFormLayout::DontWrapRows);
+        form->setLabelAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     }
 
     auto compactProfileField = [](QWidget *widget) {
@@ -8755,8 +8767,8 @@ void MainWindow::loadPage5()
         widget->setFocusPolicy(Qt::NoFocus);
         widget->setMinimumWidth(0);
 #ifdef Q_OS_ANDROID
-        widget->setMinimumHeight(24);
-        widget->setMaximumHeight(30);
+        widget->setMinimumHeight(26);
+        widget->setMaximumHeight(34);
 #else
         widget->setMinimumHeight(34);
         widget->setMaximumHeight(42);
@@ -8799,8 +8811,8 @@ void MainWindow::loadPage5()
 
     for (QLabel *label : ui->groupBoxEditProfile->findChildren<QLabel *>()) {
 #ifdef Q_OS_ANDROID
-        label->setMinimumHeight(24);
-        label->setMaximumHeight(30);
+        label->setMinimumHeight(26);
+        label->setMaximumHeight(34);
 #else
         label->setMinimumHeight(34);
 #endif
@@ -8844,6 +8856,75 @@ void MainWindow::loadPage5()
 
 
     ui->editGoal5->setText(profile.goal.isEmpty() ? tr("(未设置)") : profile.goal);
+
+    auto markInfoLabel = [](QLabel *label, const QString &className, bool wrap = false) {
+        if (!label)
+            return;
+        label->setProperty("class", className);
+        label->setWordWrap(wrap);
+        label->setMinimumWidth(0);
+        label->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+        label->style()->unpolish(label);
+        label->style()->polish(label);
+    };
+
+    for (QLabel *label : {ui->page_5->findChild<QLabel *>(QStringLiteral("label_phone")),
+                          ui->page_5->findChild<QLabel *>(QStringLiteral("lblRoleTitle")),
+                          ui->page_5->findChild<QLabel *>(QStringLiteral("label_streak"))}) {
+        markInfoLabel(label, QStringLiteral("profileKey"));
+    }
+    for (QLabel *label : {lblNickname, ui->lblPhone, ui->lblRole, ui->lblPage5Streak}) {
+        markInfoLabel(label, QStringLiteral("profileValue"), true);
+    }
+
+    if (auto *form = qobject_cast<QFormLayout *>(ui->groupBoxEditProfile->layout())) {
+        auto installValueLabel = [this, form, markInfoLabel](QWidget *field,
+                                                             const QString &name,
+                                                             const QString &text) {
+            if (!field || !ui->groupBoxEditProfile)
+                return;
+
+            QLabel *value = ui->groupBoxEditProfile->findChild<QLabel *>(name);
+            int row = -1;
+            QFormLayout::ItemRole role = QFormLayout::FieldRole;
+            form->getWidgetPosition(field, &row, &role);
+
+            if (!value) {
+                if (row < 0)
+                    return;
+                value = new QLabel(ui->groupBoxEditProfile);
+                value->setObjectName(name);
+                form->removeWidget(field);
+                field->hide();
+                form->setWidget(row, QFormLayout::FieldRole, value);
+            }
+
+            value->setText(text);
+            value->setTextInteractionFlags(Qt::TextSelectableByMouse);
+            value->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+            markInfoLabel(value, QStringLiteral("profileValue"), true);
+        };
+
+        installValueLabel(ui->editNickname5, QStringLiteral("profileValueNickname"),
+                          ui->editNickname5 ? ui->editNickname5->text() : QString());
+        installValueLabel(ui->spinBoxAge5, QStringLiteral("profileValueAge"),
+                          ui->spinBoxAge5 ? QString::number(ui->spinBoxAge5->value()) : QString());
+        installValueLabel(ui->editHeight5, QStringLiteral("profileValueHeight"),
+                          ui->editHeight5 ? ui->editHeight5->text() : QString());
+        installValueLabel(ui->editWeight5, QStringLiteral("profileValueWeight"),
+                          ui->editWeight5 ? ui->editWeight5->text() : QString());
+        installValueLabel(ui->comboGender5, QStringLiteral("profileValueGender"),
+                          ui->comboGender5 ? ui->comboGender5->currentText() : QString());
+        installValueLabel(ui->editAllergy5, QStringLiteral("profileValueAllergy"),
+                          ui->editAllergy5 ? ui->editAllergy5->text() : QString());
+        installValueLabel(ui->editGoal5, QStringLiteral("profileValueGoal"),
+                          ui->editGoal5 ? ui->editGoal5->text() : QString());
+
+        for (QLabel *label : ui->groupBoxEditProfile->findChildren<QLabel *>()) {
+            if (label->property("class").toString() != QStringLiteral("profileValue"))
+                markInfoLabel(label, QStringLiteral("profileKey"));
+        }
+    }
 
     for (QLineEdit *lineEdit : {ui->editNickname5, ui->editHeight5, ui->editWeight5,
                                 ui->editAllergy5, ui->editGoal5}) {
@@ -8894,9 +8975,9 @@ void MainWindow::loadPage5()
 
 
 
-            btnEditProfile->setMinimumHeight(30);
+            btnEditProfile->setMinimumHeight(38);
 #ifdef Q_OS_ANDROID
-            btnEditProfile->setMaximumHeight(34);
+            btnEditProfile->setMaximumHeight(40);
 #endif
 
 
@@ -9028,7 +9109,7 @@ void MainWindow::loadPage5()
 
 
             connect(btnLogout, &QPushButton::clicked, this, [this]() {
-                logoutToLogin();
+                confirmLogoutToLogin();
 
             });
 
