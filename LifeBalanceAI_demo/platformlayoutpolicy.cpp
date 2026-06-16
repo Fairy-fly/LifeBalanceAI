@@ -106,7 +106,6 @@ void applyWindowEdgeToEdge()
     constexpr jint flagTranslucentStatus = static_cast<jint>(0x04000000);
     constexpr jint flagTranslucentNavigation = static_cast<jint>(0x08000000);
     constexpr jint systemUiLayoutStable = static_cast<jint>(0x00000100);
-    constexpr jint systemUiLayoutHideNavigation = static_cast<jint>(0x00000200);
     constexpr jint systemUiLayoutFullscreen = static_cast<jint>(0x00000400);
     constexpr jint systemUiLightStatusBar = static_cast<jint>(0x00002000);
     constexpr jint systemUiLightNavigationBar = static_cast<jint>(0x00000010);
@@ -137,7 +136,7 @@ void applyWindowEdgeToEdge()
         }
     }
 
-    jint systemUiFlags = systemUiLayoutStable | systemUiLayoutHideNavigation | systemUiLayoutFullscreen;
+    jint systemUiFlags = systemUiLayoutStable | systemUiLayoutFullscreen;
     if (sdk >= 23)
         systemUiFlags |= systemUiLightStatusBar;
     if (sdk >= 26)
@@ -211,7 +210,9 @@ QSize PlatformLayoutPolicy::availableScreenSize()
 void PlatformLayoutPolicy::applyAndroidEdgeToEdge()
 {
 #ifdef Q_OS_ANDROID
-    applyWindowEdgeToEdge();
+    QNativeInterface::QAndroidApplication::runOnAndroidMainThread([]() {
+        applyWindowEdgeToEdge();
+    });
 #endif
 }
 
