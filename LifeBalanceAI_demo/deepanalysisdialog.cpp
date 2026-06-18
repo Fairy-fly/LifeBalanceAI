@@ -2,20 +2,37 @@
 #include "designtokens.h"
 #include "platformlayoutpolicy.h"
 
-#include <QVBoxLayout>
-#include <QHBoxLayout>
-#include <QLabel>
-#include <QScrollArea>
-#include <QPushButton>
-#include <QTableWidget>
-#include <QHeaderView>
-#include <QFont>
+#include <QFrame>
 #include <QGuiApplication>
+#include <QLabel>
+#include <QPushButton>
 #include <QScreen>
+#include <QScrollArea>
+#include <QSpacerItem>
+#include <QVBoxLayout>
 #ifdef Q_OS_ANDROID
 #include <QScroller>
 #include <QScrollerProperties>
 #endif
+
+namespace {
+
+QLabel *makeWrappedLabel(const QString &text, const QString &objectName, QWidget *parent)
+{
+    auto *label = new QLabel(text, parent);
+    label->setObjectName(objectName);
+    label->setWordWrap(true);
+    label->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    return label;
+}
+
+void addMajorTitle(QVBoxLayout *layout, QWidget *parent, const QString &title)
+{
+    auto *label = makeWrappedLabel(title, QStringLiteral("analysisMajorTitle"), parent);
+    layout->addWidget(label);
+}
+
+} // namespace
 
 DeepAnalysisDialog::DeepAnalysisDialog(QWidget *parent)
     : QDialog(parent)
@@ -25,7 +42,7 @@ DeepAnalysisDialog::DeepAnalysisDialog(QWidget *parent)
 
 void DeepAnalysisDialog::setupUi()
 {
-    setWindowTitle(tr("AI 深度分析报告"));
+    setWindowTitle(QString::fromUtf8("AI 健康洞察报告"));
     setObjectName(QStringLiteral("analysisDialog"));
     setAttribute(Qt::WA_StyledBackground, true);
     setStyleSheet(QStringLiteral(
@@ -37,186 +54,202 @@ void DeepAnalysisDialog::setupUi()
     ).arg(DesignTokens::bgCard(),
           DesignTokens::border(),
           QString::number(DesignTokens::RadiusLg)));
+
 #ifdef Q_OS_ANDROID
     const QRect available = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogAvailableRect();
+    const QSize preferred(qMin(available.width() * 88 / 100, 390),
+                          qMin(available.height() * 78 / 100, 660));
     const QSize target = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogSizeForRole(
         LifeBalanceAI::Ui::PlatformLayoutPolicy::DialogRole::LargeContent,
-        QSize(qMin(available.width(), 540), qMin(available.height(), 620)));
-    setMinimumSize(qMin(target.width(), 540), qMin(target.height(), 520));
+        preferred);
     resize(target);
+    setMaximumSize(qMin(available.width() - 24, 430), qMin(available.height() - 24, 720));
 #else
-    setMinimumSize(480, 600);
     resize(520, 680);
+    setMaximumSize(620, 760);
 #endif
-
-    // Center on screen (Qt dialogs don't always auto-center on Android)
-    {
-#ifdef Q_OS_ANDROID
-        LifeBalanceAI::Ui::PlatformLayoutPolicy::centerWidgetOnSafeArea(this);
-#else
-        const QRect avail = QGuiApplication::primaryScreen()->availableGeometry();
-        move(avail.center() - rect().center());
-#endif
-    }
 
     auto *mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(16, 16, 16, 16);
+#ifdef Q_OS_ANDROID
+    mainLayout->setContentsMargins(16, 14, 16, 14);
     mainLayout->setSpacing(10);
+#else
+    mainLayout->setContentsMargins(18, 18, 18, 18);
+    mainLayout->setSpacing(12);
+#endif
 
-    // Title
-    auto *titleLabel = new QLabel(tr("🔬 AI 深度分析报告"), this);
-    titleLabel->setObjectName(QStringLiteral("analysisDialogTitle"));
-    QFont titleFont = titleLabel->font();
-    titleFont.setPointSize(15);
-    titleFont.setWeight(QFont::DemiBold);
-    titleLabel->setFont(titleFont);
-    titleLabel->setAlignment(Qt::AlignCenter);
+    auto *titleLabel = makeWrappedLabel(QString::fromUtf8("AI 健康洞察报告"),
+                                        QStringLiteral("analysisDialogTitle"),
+                                        this);
+    titleLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     mainLayout->addWidget(titleLabel);
 
-    // Scroll area for content
+    auto *hintLabel = makeWrappedLabel(QString::fromUtf8("以下内容仅供习惯管理参考，不作为医疗诊断。"),
+                                       QStringLiteral("analysisDialogHint"),
+                                       this);
+    mainLayout->addWidget(hintLabel);
+
     m_scrollArea = new QScrollArea(this);
+    m_scrollArea->setObjectName(QStringLiteral("analysisDialogScrollArea"));
     m_scrollArea->setWidgetResizable(true);
     m_scrollArea->setFrameShape(QFrame::NoFrame);
+    m_scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 #ifdef Q_OS_ANDROID
+    m_scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     if (m_scrollArea->viewport()) {
         m_scrollArea->viewport()->setAttribute(Qt::WA_AcceptTouchEvents, true);
         QScroller::grabGesture(m_scrollArea->viewport(), QScroller::TouchGesture);
-        QScroller *s = QScroller::scroller(m_scrollArea->viewport());
-        QScrollerProperties sp = s->scrollerProperties();
-        sp.setScrollMetric(QScrollerProperties::VerticalOvershootPolicy,
-                           QScrollerProperties::OvershootAlwaysOff);
-        sp.setScrollMetric(QScrollerProperties::HorizontalOvershootPolicy,
-                           QScrollerProperties::OvershootAlwaysOff);
-        sp.setScrollMetric(QScrollerProperties::DecelerationFactor, 0.8);
-        sp.setScrollMetric(QScrollerProperties::MaximumVelocity, 0.3);
-        sp.setScrollMetric(QScrollerProperties::DragStartDistance, 0.005);
-        sp.setScrollMetric(QScrollerProperties::FrameRate,
-                           QScrollerProperties::Fps60);
-        s->setScrollerProperties(sp);
+        QScroller *scroller = QScroller::scroller(m_scrollArea->viewport());
+        QScrollerProperties props = scroller->scrollerProperties();
+        props.setScrollMetric(QScrollerProperties::VerticalOvershootPolicy,
+                              QScrollerProperties::OvershootAlwaysOff);
+        props.setScrollMetric(QScrollerProperties::HorizontalOvershootPolicy,
+                              QScrollerProperties::OvershootAlwaysOff);
+        props.setScrollMetric(QScrollerProperties::DecelerationFactor, 0.8);
+        props.setScrollMetric(QScrollerProperties::MaximumVelocity, 0.35);
+        props.setScrollMetric(QScrollerProperties::DragStartDistance, 0.005);
+        props.setScrollMetric(QScrollerProperties::FrameRate,
+                              QScrollerProperties::Fps60);
+        scroller->setScrollerProperties(props);
     }
+#else
+    m_scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
 #endif
 
-    m_contentWidget = new QWidget;
-    m_contentWidget->setLayout(new QVBoxLayout);
-    m_contentWidget->layout()->setContentsMargins(4, 4, 4, 4);
-    m_contentWidget->layout()->setSpacing(10);
+    m_contentWidget = new QWidget(m_scrollArea);
+    m_contentWidget->setObjectName(QStringLiteral("analysisDialogContent"));
+    auto *contentLayout = new QVBoxLayout(m_contentWidget);
+#ifdef Q_OS_ANDROID
+    contentLayout->setContentsMargins(0, 2, 0, 4);
+    contentLayout->setSpacing(10);
+#else
+    contentLayout->setContentsMargins(2, 4, 2, 6);
+    contentLayout->setSpacing(12);
+#endif
 
     m_scrollArea->setWidget(m_contentWidget);
-    mainLayout->addWidget(m_scrollArea);
+    mainLayout->addWidget(m_scrollArea, 1);
 
-    // Close button
-    auto *btnClose = new QPushButton(tr("关闭"), this);
+    auto *btnClose = new QPushButton(QString::fromUtf8("关闭"), this);
     btnClose->setProperty("class", QStringLiteral("primary"));
+#ifdef Q_OS_ANDROID
     btnClose->setMinimumHeight(44);
+    btnClose->setMaximumHeight(48);
+#else
+    btnClose->setMinimumHeight(46);
+#endif
     mainLayout->addWidget(btnClose);
     connect(btnClose, &QPushButton::clicked, this, &QDialog::accept);
+
+#ifdef Q_OS_ANDROID
+    LifeBalanceAI::Ui::PlatformLayoutPolicy::centerWidgetOnSafeArea(this);
+#else
+    if (QScreen *screen = QGuiApplication::primaryScreen()) {
+        const QRect avail = screen->availableGeometry();
+        move(avail.center() - rect().center());
+    }
+#endif
 }
 
 QLabel *DeepAnalysisDialog::addSection(const QString &title, const QString &content)
 {
     auto *layout = qobject_cast<QVBoxLayout *>(m_contentWidget->layout());
+    if (!layout)
+        return nullptr;
 
-    auto *titleLabel = new QLabel(title, m_contentWidget);
-    titleLabel->setObjectName(QStringLiteral("analysisSectionTitle"));
-    QFont f = titleLabel->font();
-    f.setPointSize(11);
-    f.setBold(true);
-    titleLabel->setFont(f);
-    layout->addWidget(titleLabel);
+    auto *card = new QFrame(m_contentWidget);
+    card->setObjectName(QStringLiteral("analysisSectionCard"));
+    auto *cardLayout = new QVBoxLayout(card);
+#ifdef Q_OS_ANDROID
+    cardLayout->setContentsMargins(12, 10, 12, 10);
+    cardLayout->setSpacing(5);
+#else
+    cardLayout->setContentsMargins(14, 12, 14, 12);
+    cardLayout->setSpacing(6);
+#endif
 
-    auto *contentLabel = new QLabel(content, m_contentWidget);
-    contentLabel->setObjectName(QStringLiteral("analysisSectionCard"));
-    contentLabel->setWordWrap(true);
-    layout->addWidget(contentLabel);
+    auto *titleLabel = makeWrappedLabel(title, QStringLiteral("analysisSectionTitle"), card);
+    cardLayout->addWidget(titleLabel);
 
+    auto *contentLabel = makeWrappedLabel(content, QStringLiteral("analysisSectionBody"), card);
+    cardLayout->addWidget(contentLabel);
+
+    layout->addWidget(card);
     return contentLabel;
 }
 
 void DeepAnalysisDialog::setAnalysisResult(const LifeBalanceAI::Models::DeepAnalysisResult &result)
 {
-    // Clear existing content
     QLayout *layout = m_contentWidget->layout();
-    QLayoutItem *child;
+    QLayoutItem *child = nullptr;
     while ((child = layout->takeAt(0)) != nullptr) {
         if (child->widget())
             child->widget()->deleteLater();
         delete child;
     }
 
-    // ── Nutrition Analysis ──
-    auto *nutriTitle = new QLabel(tr("📊 营养分析"), m_contentWidget);
-    nutriTitle->setObjectName(QStringLiteral("analysisMajorTitle"));
-    QFont f = nutriTitle->font();
-    f.setPointSize(13);
-    f.setBold(true);
-    nutriTitle->setFont(f);
-    layout->addWidget(nutriTitle);
+    auto *contentLayout = qobject_cast<QVBoxLayout *>(layout);
+    if (!contentLayout)
+        return;
 
+    addMajorTitle(contentLayout, m_contentWidget, QString::fromUtf8("营养观察"));
     if (!result.nutritionProtein.isEmpty())
-        addSection(tr("🥩 蛋白质"), result.nutritionProtein);
+        addSection(QString::fromUtf8("蛋白质"), result.nutritionProtein);
     if (!result.nutritionCarbs.isEmpty())
-        addSection(tr("🍚 碳水化合物"), result.nutritionCarbs);
+        addSection(QString::fromUtf8("碳水化合物"), result.nutritionCarbs);
     if (!result.nutritionFat.isEmpty())
-        addSection(tr("🧈 脂肪"), result.nutritionFat);
+        addSection(QString::fromUtf8("脂肪"), result.nutritionFat);
     if (!result.nutritionAdvice.isEmpty())
-        addSection(tr("💡 综合营养建议"), result.nutritionAdvice);
+        addSection(QString::fromUtf8("综合建议"), result.nutritionAdvice);
 
-    // ── Exercise Analysis ──
-    auto *exTitle = new QLabel(tr("🏃 运动分析"), m_contentWidget);
-    exTitle->setObjectName(QStringLiteral("analysisMajorTitle"));
-    QFont f2 = exTitle->font();
-    f2.setPointSize(13);
-    f2.setBold(true);
-    exTitle->setFont(f2);
-    layout->addWidget(exTitle);
-
+    addMajorTitle(contentLayout, m_contentWidget, QString::fromUtf8("运动观察"));
     if (!result.exerciseChange.isEmpty())
-        addSection(tr("📈 调整建议"), result.exerciseChange);
+        addSection(QString::fromUtf8("调整方向"), result.exerciseChange);
     if (!result.exerciseConfidence.isEmpty())
-        addSection(tr("🎯 完成信心"), result.exerciseConfidence);
+        addSection(QString::fromUtf8("完成信心"), result.exerciseConfidence);
 
-    // ── Recipe Recommendations ──
     if (!result.recipes.isEmpty()) {
-        auto *recipeTitle = new QLabel(tr("🍳 推荐食谱"), m_contentWidget);
-        recipeTitle->setObjectName(QStringLiteral("analysisMajorTitle"));
-        QFont f3 = recipeTitle->font();
-        f3.setPointSize(13);
-        f3.setBold(true);
-        recipeTitle->setFont(f3);
-        layout->addWidget(recipeTitle);
+        addMajorTitle(contentLayout, m_contentWidget, QString::fromUtf8("推荐食谱"));
+        for (const auto &recipe : result.recipes) {
+            auto *card = new QFrame(m_contentWidget);
+            card->setObjectName(QStringLiteral("analysisRecipeCard"));
+            auto *cardLayout = new QVBoxLayout(card);
+#ifdef Q_OS_ANDROID
+            cardLayout->setContentsMargins(12, 10, 12, 10);
+            cardLayout->setSpacing(5);
+#else
+            cardLayout->setContentsMargins(14, 12, 14, 12);
+            cardLayout->setSpacing(6);
+#endif
+            const QString recipeName = recipe.name.trimmed().isEmpty()
+                ? QString::fromUtf8("推荐食谱")
+                : recipe.name.trimmed();
+            cardLayout->addWidget(makeWrappedLabel(recipeName,
+                                                   QStringLiteral("analysisRecipeName"),
+                                                   card));
+            if (!recipe.reason.trimmed().isEmpty()) {
+                cardLayout->addWidget(makeWrappedLabel(recipe.reason.trimmed(),
+                                                       QStringLiteral("analysisRecipeReason"),
+                                                       card));
+            }
 
-        auto *table = new QTableWidget(result.recipes.size(), 3, m_contentWidget);
-        table->setHorizontalHeaderLabels({tr("菜名"), tr("推荐原因"), tr("热量(kcal)")});
-        table->horizontalHeader()->setStretchLastSection(true);
-        table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
-        table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
-        table->setEditTriggers(QAbstractItemView::NoEditTriggers);
-        table->setMinimumHeight(80 + result.recipes.size() * 30);
-
-        for (int i = 0; i < result.recipes.size(); ++i) {
-            table->setItem(i, 0, new QTableWidgetItem(result.recipes[i].name));
-            table->setItem(i, 1, new QTableWidgetItem(result.recipes[i].reason));
-            table->setItem(i, 2, new QTableWidgetItem(QString::number(result.recipes[i].calories)));
+            const QString calories = recipe.calories > 0
+                ? QString::fromUtf8("约 %1 kcal").arg(recipe.calories)
+                : QString::fromUtf8("热量待估算");
+            cardLayout->addWidget(makeWrappedLabel(calories,
+                                                   QStringLiteral("analysisRecipeMeta"),
+                                                   card));
+            contentLayout->addWidget(card);
         }
-        layout->addWidget(table);
     }
 
-    // ── Lazy Slot ──
     if (!result.lazySlot.isEmpty() || !result.lazyAdvice.isEmpty()) {
-        auto *lazyTitle = new QLabel(tr("😴 偷懒分析"), m_contentWidget);
-        lazyTitle->setObjectName(QStringLiteral("analysisMajorTitle"));
-        QFont f4 = lazyTitle->font();
-        f4.setPointSize(13);
-        f4.setBold(true);
-        lazyTitle->setFont(f4);
-        layout->addWidget(lazyTitle);
-
+        addMajorTitle(contentLayout, m_contentWidget, QString::fromUtf8("执行习惯"));
         if (!result.lazySlot.isEmpty())
-            addSection(tr("🔍 最常偷懒时段"), result.lazySlot);
+            addSection(QString::fromUtf8("容易松动的时段"), result.lazySlot);
         if (!result.lazyAdvice.isEmpty())
-            addSection(tr("💪 改善建议"), result.lazyAdvice);
+            addSection(QString::fromUtf8("改善建议"), result.lazyAdvice);
     }
 
-    // Add spacer at bottom
-    layout->addItem(new QSpacerItem(20, 20, QSizePolicy::Minimum, QSizePolicy::Expanding));
+    contentLayout->addItem(new QSpacerItem(20, 8, QSizePolicy::Minimum, QSizePolicy::Fixed));
 }

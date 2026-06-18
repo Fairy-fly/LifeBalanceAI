@@ -10105,23 +10105,24 @@ int MainWindow::setupAnalysisPage()
     auto *vlay = new QVBoxLayout(scrollContent);
 
 #ifdef Q_OS_ANDROID
-    vlay->setContentsMargins(18, 10, 18, 16);
+    vlay->setContentsMargins(18, 8, 18, 16);
     vlay->setSpacing(10);
 #else
     vlay->setContentsMargins(24, 24, 24, 20);
     vlay->setSpacing(16);
 #endif
+    vlay->setAlignment(Qt::AlignTop);
     pageScroll->setWidget(scrollContent);
     rootLayout->addWidget(pageScroll, 1);
     const int analysisHeroHeight =
 #ifdef Q_OS_ANDROID
-        172;
+        126;
 #else
-        228;
+        188;
 #endif
     auto *analysisHero = UiFactory::assetLabel(QStringLiteral(":/assets/ai_analysis.png"), analysisHeroHeight, existing);
     analysisHero->setMinimumHeight(analysisHeroHeight);
-    analysisHero->setMaximumHeight(analysisHeroHeight + 12);
+    analysisHero->setMaximumHeight(analysisHeroHeight + 8);
     vlay->addWidget(analysisHero);
 
 
@@ -10138,30 +10139,55 @@ int MainWindow::setupAnalysisPage()
 
 
 
-        auto *titleLabel = new QLabel(tr("AI \u6df1\u5ea6\u5206\u6790"), existing);
-
-
-
-        titleLabel->setObjectName(QStringLiteral("warmTitle"));
-
-
-
+        auto *titleLabel = new QLabel(QString::fromUtf8("AI 健康洞察"), existing);
+        titleLabel->setObjectName(QStringLiteral("analysisPageTitle"));
         titleLabel->setAlignment(Qt::AlignCenter);
-
-
-
         vlay->addWidget(titleLabel);
 
+        auto *subtitleLabel = new QLabel(QString::fromUtf8("基于近期饮食、运动和反馈记录，整理更适合手机阅读的习惯建议。"), existing);
+        subtitleLabel->setObjectName(QStringLiteral("analysisPageSubtitle"));
+        subtitleLabel->setAlignment(Qt::AlignCenter);
+        subtitleLabel->setWordWrap(true);
+        vlay->addWidget(subtitleLabel);
 
 
 
 
 
 
+
+#if 0
         auto *summaryCard = UiFactory::infoCard(
             tr("AI 会基于近几天的饮食、运动和反馈记录，给出更具体的健康洞察与建议。"),
             tr("适合在完成一段时间打卡后查看，可以更快发现饮食结构、运动节奏和执行习惯里的变化。"),
             existing);
+        vlay->addWidget(summaryCard);
+#endif
+
+        auto *summaryCard = new QFrame(existing);
+        summaryCard->setObjectName(QStringLiteral("analysisIntroCard"));
+        auto *summaryLayout = new QVBoxLayout(summaryCard);
+#ifdef Q_OS_ANDROID
+        summaryLayout->setContentsMargins(14, 12, 14, 12);
+        summaryLayout->setSpacing(6);
+#else
+        summaryLayout->setContentsMargins(18, 16, 18, 16);
+        summaryLayout->setSpacing(8);
+#endif
+        auto *summaryTitle = new QLabel(QString::fromUtf8("查看近期健康习惯的变化"), summaryCard);
+        summaryTitle->setObjectName(QStringLiteral("analysisIntroTitle"));
+        summaryTitle->setWordWrap(true);
+        summaryLayout->addWidget(summaryTitle);
+
+        auto *summaryBody = new QLabel(QString::fromUtf8("AI 会从饮食结构、运动节奏和执行反馈中提炼观察，帮助你发现可以继续坚持或轻微调整的地方。"), summaryCard);
+        summaryBody->setObjectName(QStringLiteral("analysisIntroBody"));
+        summaryBody->setWordWrap(true);
+        summaryLayout->addWidget(summaryBody);
+
+        auto *summaryNote = new QLabel(QString::fromUtf8("内容仅用于习惯管理参考，不作为医疗诊断。"), summaryCard);
+        summaryNote->setObjectName(QStringLiteral("analysisIntroNote"));
+        summaryNote->setWordWrap(true);
+        summaryLayout->addWidget(summaryNote);
         vlay->addWidget(summaryCard);
 
 
@@ -10170,7 +10196,7 @@ int MainWindow::setupAnalysisPage()
 
 
 
-        auto *btnAnalyze = UiFactory::primaryButton(tr("\u5f00\u59cb\u5206\u6790"), existing);
+        auto *btnAnalyze = UiFactory::primaryButton(QString::fromUtf8("开始分析"), existing);
 
 
 
@@ -10201,26 +10227,24 @@ int MainWindow::setupAnalysisPage()
 
 
 
-        auto *titleLabel = new QLabel(tr("AI \u6df1\u5ea6\u5206\u6790"), existing);
-
-
-
-        titleLabel->setObjectName(QStringLiteral("warmTitle"));
-
-
-
+        auto *titleLabel = new QLabel(QString::fromUtf8("AI 健康洞察"), existing);
+        titleLabel->setObjectName(QStringLiteral("analysisPageTitle"));
         titleLabel->setAlignment(Qt::AlignCenter);
-
-
-
         vlay->addWidget(titleLabel);
 
+        auto *subtitleLabel = new QLabel(QString::fromUtf8("升级后可查看更完整的饮食、运动和执行反馈洞察。"), existing);
+        subtitleLabel->setObjectName(QStringLiteral("analysisPageSubtitle"));
+        subtitleLabel->setAlignment(Qt::AlignCenter);
+        subtitleLabel->setWordWrap(true);
+        vlay->addWidget(subtitleLabel);
 
 
 
 
 
 
+
+#if 0
         auto *benefitCard = UiFactory::infoCard(
             tr("升级后可获得"),
             tr("更细致的饮食结构分析、运动节奏判断，以及更有针对性的健康改进建议。"),
@@ -10270,6 +10294,33 @@ int MainWindow::setupAnalysisPage()
 
 
         vlay->addSpacing(10);
+#endif
+
+        auto *benefitCard = new QFrame(existing);
+        benefitCard->setObjectName(QStringLiteral("analysisIntroCard"));
+        auto *benefitLayout = new QVBoxLayout(benefitCard);
+#ifdef Q_OS_ANDROID
+        benefitLayout->setContentsMargins(14, 12, 14, 12);
+        benefitLayout->setSpacing(6);
+#else
+        benefitLayout->setContentsMargins(18, 16, 18, 16);
+        benefitLayout->setSpacing(8);
+#endif
+        auto *benefitTitle = new QLabel(QString::fromUtf8("律行者专属洞察"), benefitCard);
+        benefitTitle->setObjectName(QStringLiteral("analysisIntroTitle"));
+        benefitTitle->setWordWrap(true);
+        benefitLayout->addWidget(benefitTitle);
+
+        auto *benefitBody = new QLabel(QString::fromUtf8("可获得饮食结构观察、运动节奏建议和更细致的执行习惯反馈。建议仅用于日常习惯管理参考。"), benefitCard);
+        benefitBody->setObjectName(QStringLiteral("analysisIntroBody"));
+        benefitBody->setWordWrap(true);
+        benefitLayout->addWidget(benefitBody);
+
+        auto *benefitList = new QLabel(QString::fromUtf8("• 识别近期营养摄入倾向\n• 观察运动完成节奏\n• 提供温和、可执行的调整方向"), benefitCard);
+        benefitList->setObjectName(QStringLiteral("analysisIntroNote"));
+        benefitList->setWordWrap(true);
+        benefitLayout->addWidget(benefitList);
+        vlay->addWidget(benefitCard);
 
 
 
@@ -10277,7 +10328,7 @@ int MainWindow::setupAnalysisPage()
 
 
 
-        auto *btnUpgrade = UiFactory::primaryButton(tr("\u5347\u7ea7\u4e3a\u5f8b\u884c\u8005"), existing);
+        auto *btnUpgrade = UiFactory::primaryButton(QString::fromUtf8("升级为律行者"), existing);
 
 
 

@@ -94,6 +94,49 @@ QLabel#emptyBody {
     font-size: 14px;
 }
 
+QLabel#analysisPageTitle {
+    font-family: "MiSans Medium", "MiSans", "Noto Sans SC", "Microsoft YaHei UI", sans-serif;
+    color: #1F2A24;
+    font-size: 21px;
+    font-weight: 600;
+    padding: 0;
+}
+
+QLabel#analysisPageSubtitle {
+    color: #6F665D;
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.55;
+    padding: 0 4px;
+}
+
+QFrame#analysisIntroCard {
+    background: #FFFDF9;
+    border: 1px solid #E8DED2;
+    border-radius: 14px;
+}
+
+QLabel#analysisIntroTitle {
+    color: #1F2A24;
+    font-family: "MiSans Medium", "MiSans", "Noto Sans SC", "Microsoft YaHei UI", sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+QLabel#analysisIntroBody {
+    color: #48423C;
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.6;
+}
+
+QLabel#analysisIntroNote {
+    color: #8A8178;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.5;
+}
+
 QLabel#legalDisclaimer {
     color: #999999;
     font-size: 11px;
@@ -187,36 +230,74 @@ QLabel#feedbackImagePreview[class="selected"] {
 
 QLabel#analysisDialogTitle {
     font-family: "MiSans Medium", "MiSans", "Noto Sans SC", "Microsoft YaHei UI", sans-serif;
-    color: #2F6F57;
-    font-size: 18px;
+    color: #1F2A24;
+    font-size: 17px;
     font-weight: 600;
-    padding: 6px 0;
+    padding: 2px 0;
+}
+
+QLabel#analysisDialogHint {
+    color: #8A8178;
+    font-size: 12px;
+    font-weight: 400;
+    padding: 0 0 4px 0;
+}
+
+QScrollArea#analysisDialogScrollArea {
+    background: transparent;
+    border: none;
+}
+
+QWidget#analysisDialogContent {
+    background: transparent;
 }
 
 QLabel#analysisMajorTitle {
     font-family: "MiSans Medium", "MiSans", "Noto Sans SC", "Microsoft YaHei UI", sans-serif;
     color: #2F6F57;
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 600;
-    margin-top: 8px;
+    padding: 8px 0 2px 0;
 }
 
 QLabel#analysisSectionTitle {
     font-family: "MiSans Medium", "MiSans", "Noto Sans SC", "Microsoft YaHei UI", sans-serif;
     color: #2F6F57;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
-    margin-top: 6px;
+    padding: 0;
 }
 
-QLabel#analysisSectionCard {
+QFrame#analysisSectionCard,
+QFrame#analysisRecipeCard {
+    background: #FFFDF9;
+    border: 1px solid #E8DED2;
+    border-radius: 12px;
+}
+
+QLabel#analysisSectionBody,
+QLabel#analysisRecipeReason {
+    color: #48423C;
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.6;
+}
+
+QLabel#analysisRecipeName {
+    color: #1F2A24;
+    font-family: "MiSans Medium", "MiSans", "Noto Sans SC", "Microsoft YaHei UI", sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+QLabel#analysisRecipeMeta {
+    color: #2F6F57;
     background: #F0FAF5;
     border: 1px solid #BDEDD5;
     border-radius: 10px;
-    padding: 10px;
-    color: #333333;
-    font-size: 13px;
-    line-height: 1.6;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 8px;
 }
 
 QLabel#reportHistoryTitle {
