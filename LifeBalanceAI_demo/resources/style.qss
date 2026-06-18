@@ -102,6 +102,46 @@ QLabel#analysisPageTitle {
     padding: 0;
 }
 
+QLabel#reportPageTitle {
+    font-family: "MiSans Medium", "MiSans", "Noto Sans SC", "Microsoft YaHei UI", sans-serif;
+    color: #1F2A24;
+    font-size: 21px;
+    font-weight: 600;
+    padding: 0;
+}
+
+QFrame#reportIntroCard,
+QFrame#reportMetricsCard,
+QFrame#reportMetricModule {
+    background: #FFFDF9;
+    border: 1px solid #E8DED2;
+    border-radius: 14px;
+}
+
+QLabel#reportIntroTitle,
+QLabel#reportMetricsTitle,
+QLabel#reportMetricModuleTitle {
+    color: #1F2A24;
+    font-family: "MiSans Medium", "MiSans", "Noto Sans SC", "Microsoft YaHei UI", sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+QLabel#reportIntroBody {
+    color: #48423C;
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.6;
+}
+
+QLabel#reportIntroNote,
+QLabel#reportMetricHint {
+    color: #8A8178;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.5;
+}
+
 QLabel#analysisPageSubtitle {
     color: #6F665D;
     font-size: 13px;
@@ -301,48 +341,55 @@ QLabel#analysisRecipeMeta {
 }
 
 QLabel#reportHistoryTitle {
-    font-family: "MiSans Bold", "MiSans", "Noto Sans SC", "Microsoft YaHei UI", sans-serif;
-    color: #1A1A1A;
-    font-size: 20px;
-    font-weight: 700;
+    font-family: "MiSans Medium", "MiSans", "Noto Sans SC", "Microsoft YaHei UI", sans-serif;
+    color: #1F2A24;
+    font-size: 18px;
+    font-weight: 600;
 }
 
 QLabel#reportHistoryHint {
-    color: #666666;
-    font-size: 14px;
+    color: #8A8178;
+    font-size: 12px;
+    font-weight: 400;
 }
 
 QListWidget#reportHistoryList {
-    background: #FEFEFE;
-    border: 1px solid #E8E8E8;
-    border-radius: 8px;
-    padding: 6px;
+    background: transparent;
+    border: none;
+    padding: 2px;
     outline: none;
 }
 
 QListWidget#reportHistoryList::item {
-    min-height: 42px;
-    padding: 8px 10px;
-    border-radius: 6px;
-    color: #333333;
+    min-height: 64px;
+    padding: 9px 10px;
+    margin: 4px 0;
+    border: 1px solid #E8DED2;
+    border-radius: 12px;
+    background: #FFFDF9;
+    color: #48423C;
+    font-size: 13px;
 }
 
 QListWidget#reportHistoryList::item:hover {
-    background: #F5F5F5;
+    background: #F0FAF5;
 }
 
 QListWidget#reportHistoryList::item:selected {
     background: #E8F8F2;
+    border-color: #BDEDD5;
     color: #2D7A5E;
 }
 
 QTextEdit#reportDetailText {
-    background: #FEFEFE;
-    border: 1px solid #E8E8E8;
-    border-radius: 8px;
+    background: #FFFDF9;
+    border: 1px solid #E8DED2;
+    border-radius: 12px;
     padding: 12px;
-    font-size: 14px;
-    color: #333333;
+    font-size: 13px;
+    color: #48423C;
+    font-weight: 400;
+    line-height: 1.6;
 }
 
 QWidget#dialogAccentBar {

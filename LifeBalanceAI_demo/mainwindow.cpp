@@ -9694,7 +9694,7 @@ void MainWindow::showReportHistory()
 
 
 
-        lines << QStringLiteral("%1  |  %2 ~ %3  |  ID: %4")
+        lines << QStringLiteral("%1\n%2 ~ %3  ·  ID #%4")
 
 
 
@@ -9724,9 +9724,9 @@ void MainWindow::showReportHistory()
     picker.setAttribute(Qt::WA_StyledBackground, true);
     picker.setStyleSheet(QStringLiteral(
         "#reportHistoryDialog{"
-        "  background:#FFFFFF;"
-        "  border:2px solid #4CAF7F;"
-        "  border-radius:8px;"
+        "  background:#FFFDF9;"
+        "  border:1px solid #E8DED2;"
+        "  border-radius:16px;"
         "}"
     ));
 #ifdef Q_OS_ANDROID
@@ -9738,8 +9738,8 @@ void MainWindow::showReportHistory()
 #endif
 
     auto *pickerLayout = new QVBoxLayout(&picker);
-    pickerLayout->setContentsMargins(18, 18, 18, 18);
-    pickerLayout->setSpacing(12);
+    pickerLayout->setContentsMargins(18, 16, 18, 16);
+    pickerLayout->setSpacing(10);
 
     auto *pickerTitle = new QLabel(tr("我的周报"), &picker);
     pickerTitle->setObjectName(QStringLiteral("reportHistoryTitle"));
@@ -9751,8 +9751,13 @@ void MainWindow::showReportHistory()
 
     auto *reportList = new QListWidget(&picker);
     reportList->setObjectName(QStringLiteral("reportHistoryList"));
-    reportList->addItems(lines);
+    for (const QString &line : lines) {
+        auto *item = new QListWidgetItem(line, reportList);
+        item->setSizeHint(QSize(0, 68));
+    }
     reportList->setCurrentRow(0);
+    reportList->setWordWrap(true);
+    reportList->setTextElideMode(Qt::ElideNone);
     reportList->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
     pickerLayout->addWidget(reportList, 1);
 
@@ -9895,11 +9900,17 @@ void MainWindow::showReportHistory()
 
     }
 
-
-
-
-
-
+    if (parsedSummary.ok) {
+        const QJsonObject ai = parsedSummary.summaryObject;
+        summaryText = QString::fromUtf8("总体评价\n%1\n\n")
+                          .arg(ai.value(QStringLiteral("summary")).toString());
+        summaryText += QString::fromUtf8("饮食评分：%1/10\n运动评分：%2/10\n完成率：%3%\n")
+                           .arg(ai.value(QStringLiteral("diet_score")).toInt())
+                           .arg(ai.value(QStringLiteral("exercise_score")).toInt())
+                           .arg(ai.value(QStringLiteral("completion_rate")).toInt());
+        summaryText += QString::fromUtf8("\n下周目标：%1")
+                           .arg(ai.value(QStringLiteral("next_week_goal")).toString());
+    }
 
     QDialog detail(this);
     detail.setObjectName(QStringLiteral("reportHistoryDialog"));
@@ -9907,9 +9918,9 @@ void MainWindow::showReportHistory()
     detail.setAttribute(Qt::WA_StyledBackground, true);
     detail.setStyleSheet(QStringLiteral(
         "#reportHistoryDialog{"
-        "  background:#FFFFFF;"
-        "  border:2px solid #4CAF7F;"
-        "  border-radius:8px;"
+        "  background:#FFFDF9;"
+        "  border:1px solid #E8DED2;"
+        "  border-radius:16px;"
         "}"
     ));
 #ifdef Q_OS_ANDROID
@@ -9923,8 +9934,8 @@ void MainWindow::showReportHistory()
 #endif
 
     auto *detailLayout = new QVBoxLayout(&detail);
-    detailLayout->setContentsMargins(18, 18, 18, 18);
-    detailLayout->setSpacing(12);
+    detailLayout->setContentsMargins(18, 16, 18, 16);
+    detailLayout->setSpacing(10);
 
     auto *detailTitle = new QLabel(tr("报告详情"), &detail);
     detailTitle->setObjectName(QStringLiteral("reportHistoryTitle"));
@@ -10498,23 +10509,24 @@ int MainWindow::setupReportPage()
     auto *vlay = new QVBoxLayout(scrollContent);
 
 #ifdef Q_OS_ANDROID
-    vlay->setContentsMargins(18, 10, 18, 16);
+    vlay->setContentsMargins(18, 8, 18, 16);
     vlay->setSpacing(10);
 #else
     vlay->setContentsMargins(24, 24, 24, 20);
     vlay->setSpacing(16);
 #endif
+    vlay->setAlignment(Qt::AlignTop);
     pageScroll->setWidget(scrollContent);
     rootLayout->addWidget(pageScroll, 1);
     const int reportHeroHeight =
 #ifdef Q_OS_ANDROID
-        160;
+        126;
 #else
-        228;
+        188;
 #endif
     auto *reportHero = UiFactory::assetLabel(QStringLiteral(":/assets/empty_report.png"), reportHeroHeight, existing);
     reportHero->setMinimumHeight(reportHeroHeight);
-    reportHero->setMaximumHeight(reportHeroHeight + 12);
+    reportHero->setMaximumHeight(reportHeroHeight + 8);
     vlay->addWidget(reportHero);
 
 
@@ -10523,7 +10535,7 @@ int MainWindow::setupReportPage()
 
 
 
-    titleLabel->setObjectName(QStringLiteral("warmTitle"));
+    titleLabel->setObjectName(QStringLiteral("reportPageTitle"));
 
 
 
@@ -10539,10 +10551,38 @@ int MainWindow::setupReportPage()
 
 
 
+#if 0
     auto *reportSummary = UiFactory::infoCard(
         tr("把近期打卡记录整理成更完整的周视角总结。"),
         tr("周报会汇总饮食、运动和完成率变化，也可以继续导出为 PNG 图片保存或分享。"),
         existing);
+    vlay->addWidget(reportSummary);
+#endif
+
+    auto *reportSummary = new QFrame(existing);
+    reportSummary->setObjectName(QStringLiteral("reportIntroCard"));
+    auto *summaryLayout = new QVBoxLayout(reportSummary);
+#ifdef Q_OS_ANDROID
+    summaryLayout->setContentsMargins(14, 12, 14, 12);
+    summaryLayout->setSpacing(6);
+#else
+    summaryLayout->setContentsMargins(18, 16, 18, 16);
+    summaryLayout->setSpacing(8);
+#endif
+    auto *summaryTitle = new QLabel(QString::fromUtf8("把近期打卡记录整理成周总结"), reportSummary);
+    summaryTitle->setObjectName(QStringLiteral("reportIntroTitle"));
+    summaryTitle->setWordWrap(true);
+    summaryLayout->addWidget(summaryTitle);
+
+    auto *summaryBody = new QLabel(QString::fromUtf8("周报会汇总饮食、运动和完成率变化，也可以导出为 PNG 图片保存或分享。"), reportSummary);
+    summaryBody->setObjectName(QStringLiteral("reportIntroBody"));
+    summaryBody->setWordWrap(true);
+    summaryLayout->addWidget(summaryBody);
+
+    auto *summaryNote = new QLabel(QString::fromUtf8("内容仅用于习惯管理参考，不作为医疗诊断。"), reportSummary);
+    summaryNote->setObjectName(QStringLiteral("reportIntroNote"));
+    summaryNote->setWordWrap(true);
+    summaryLayout->addWidget(summaryNote);
     vlay->addWidget(reportSummary);
 
     auto *metricsCard = new QFrame(existing);
@@ -10601,8 +10641,6 @@ int MainWindow::setupReportPage()
     }
     const int completionRate = totalSlots > 0 ? qRound(doneSlots * 100.0 / totalSlots) : 0;
 
-    auto *metricsRow = new QHBoxLayout();
-    metricsRow->setSpacing(12);
     auto *progress = new CircularProgressBar(metricsCard);
     progress->setObjectName(QStringLiteral("weeklyCompletionProgress"));
     progress->setLineWidth(10);
@@ -10619,23 +10657,60 @@ int MainWindow::setupReportPage()
     trend->setMinimumWidth(0);
     trend->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
 
+    auto *completionCard = new QFrame(metricsCard);
+    completionCard->setObjectName(QStringLiteral("reportMetricModule"));
+    auto *completionLayout = new QVBoxLayout(completionCard);
 #ifdef Q_OS_ANDROID
-    progress->setMaximumSize(96, 96);
-    auto *progressWrap = new QWidget(metricsCard);
+    completionLayout->setContentsMargins(12, 10, 12, 12);
+    completionLayout->setSpacing(6);
+#else
+    completionLayout->setContentsMargins(14, 12, 14, 14);
+    completionLayout->setSpacing(8);
+#endif
+    auto *completionTitle = new QLabel(QString::fromUtf8("完成率概览"), completionCard);
+    completionTitle->setObjectName(QStringLiteral("reportMetricModuleTitle"));
+    completionLayout->addWidget(completionTitle);
+
+    auto *progressWrap = new QWidget(completionCard);
     auto *progressLayout = new QHBoxLayout(progressWrap);
     progressLayout->setContentsMargins(0, 0, 0, 0);
     progressLayout->addStretch();
+#ifdef Q_OS_ANDROID
+    progress->setMaximumSize(84, 84);
+#else
+    progress->setMaximumSize(116, 116);
+#endif
     progressLayout->addWidget(progress);
     progressLayout->addStretch();
-    metricsLayout->addWidget(progressWrap);
-    trend->setMinimumHeight(118);
-    trend->setMaximumHeight(132);
-    metricsLayout->addWidget(trend);
+    completionLayout->addWidget(progressWrap);
+
+    auto *completionHint = new QLabel(QString::fromUtf8("近 7 日完成 %1 / %2 项").arg(doneSlots).arg(totalSlots), completionCard);
+    completionHint->setObjectName(QStringLiteral("reportMetricHint"));
+    completionHint->setAlignment(Qt::AlignCenter);
+    completionLayout->addWidget(completionHint);
+    metricsLayout->addWidget(completionCard);
+
+    auto *trendCard = new QFrame(metricsCard);
+    trendCard->setObjectName(QStringLiteral("reportMetricModule"));
+    auto *trendLayout = new QVBoxLayout(trendCard);
+#ifdef Q_OS_ANDROID
+    trendLayout->setContentsMargins(12, 10, 12, 10);
+    trendLayout->setSpacing(6);
 #else
-    metricsRow->addWidget(progress, 0, Qt::AlignTop);
-    metricsRow->addWidget(trend, 1);
-    metricsLayout->addLayout(metricsRow);
+    trendLayout->setContentsMargins(14, 12, 14, 12);
+    trendLayout->setSpacing(8);
 #endif
+    auto *trendTitle = new QLabel(QString::fromUtf8("近 7 日完成趋势"), trendCard);
+    trendTitle->setObjectName(QStringLiteral("reportMetricModuleTitle"));
+    trendLayout->addWidget(trendTitle);
+#ifdef Q_OS_ANDROID
+    trend->setMinimumHeight(110);
+    trend->setMaximumHeight(124);
+#else
+    trend->setMinimumHeight(150);
+#endif
+    trendLayout->addWidget(trend);
+    metricsLayout->addWidget(trendCard);
 
     QMap<QDate, CalendarGridView::CheckInStatus> monthStatus;
     const QDate monthStart(today.year(), today.month(), 1);
@@ -10676,11 +10751,25 @@ int MainWindow::setupReportPage()
 #else
     calendar->setFixedHeight(350);
 #endif
-    metricsLayout->addWidget(calendar);
+    auto *calendarCard = new QFrame(metricsCard);
+    calendarCard->setObjectName(QStringLiteral("reportMetricModule"));
+    auto *calendarLayout = new QVBoxLayout(calendarCard);
+#ifdef Q_OS_ANDROID
+    calendarLayout->setContentsMargins(12, 10, 12, 10);
+    calendarLayout->setSpacing(6);
+#else
+    calendarLayout->setContentsMargins(14, 12, 14, 12);
+    calendarLayout->setSpacing(8);
+#endif
+    auto *calendarTitle = new QLabel(QString::fromUtf8("本月打卡日历"), calendarCard);
+    calendarTitle->setObjectName(QStringLiteral("reportMetricModuleTitle"));
+    calendarLayout->addWidget(calendarTitle);
+    calendarLayout->addWidget(calendar);
+    metricsLayout->addWidget(calendarCard);
 
     vlay->addWidget(metricsCard);
 
-    auto *btnGenerate = UiFactory::primaryButton(tr("\U0001F4C4  \u751f\u6210\u5468\u62a5"), existing);
+    auto *btnGenerate = UiFactory::primaryButton(QString::fromUtf8("生成周报"), existing);
 
 
 
@@ -10701,7 +10790,7 @@ int MainWindow::setupReportPage()
 
 
 
-    auto *btnHistory = UiFactory::secondaryButton(tr("\U0001F4CB  \u6211\u7684\u5468\u62a5"), existing);
+    auto *btnHistory = UiFactory::secondaryButton(QString::fromUtf8("我的周报"), existing);
 
 
 
@@ -10775,27 +10864,74 @@ int MainWindow::setupReportPage()
 
 void MainWindow::onGenerateReport()
 {
+    auto showReportNotice = [this](const QString &title, const QString &message) {
+        showReportStatus(message);
+
+        QDialog dialog(this);
+        dialog.setObjectName(QStringLiteral("reportHistoryDialog"));
+        dialog.setWindowTitle(title);
+        dialog.setAttribute(Qt::WA_StyledBackground, true);
+        dialog.setStyleSheet(QStringLiteral(
+            "#reportHistoryDialog{"
+            "  background:#FFFDF9;"
+            "  border:1px solid #E8DED2;"
+            "  border-radius:16px;"
+            "}"
+        ));
+#ifdef Q_OS_ANDROID
+        dialog.setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
+#endif
+
+        auto *layout = new QVBoxLayout(&dialog);
+        layout->setContentsMargins(18, 16, 18, 16);
+        layout->setSpacing(10);
+
+        auto *titleLabel = new QLabel(title, &dialog);
+        titleLabel->setObjectName(QStringLiteral("reportHistoryTitle"));
+        titleLabel->setWordWrap(true);
+        layout->addWidget(titleLabel);
+
+        auto *messageLabel = new QLabel(message, &dialog);
+        messageLabel->setObjectName(QStringLiteral("reportIntroBody"));
+        messageLabel->setWordWrap(true);
+        layout->addWidget(messageLabel);
+
+        auto *buttonRow = new QHBoxLayout();
+        buttonRow->addStretch();
+        auto *btnOk = UiFactory::primaryButton(QString::fromUtf8("确定"), &dialog);
+        btnOk->setMinimumWidth(112);
+        buttonRow->addWidget(btnOk);
+        layout->addLayout(buttonRow);
+
+        connect(btnOk, &QPushButton::clicked, &dialog, &QDialog::accept);
+
+#ifdef Q_OS_ANDROID
+        {
+            const QRect available = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogAvailableRect();
+            dialog.resize(qMin(available.width(), qMax(300, int(available.width() * 0.82))),
+                          qMin(available.height(), 260));
+            LifeBalanceAI::Ui::PlatformLayoutPolicy::centerWidgetOnSafeArea(&dialog);
+        }
+#endif
+
+        dialog.exec();
+    };
+
     if (m_currentUserId < 0) {
-        showUserActionNotice(this,
-                             uiText("\u63d0\u793a"),
-                             uiText("\u672a\u68c0\u6d4b\u5230\u767b\u5f55\u7528\u6237\uff0c\u8bf7\u91cd\u65b0\u767b\u5f55\u540e\u518d\u8bd5\u3002"),
-                             [this](const QString &message) { showReportStatus(message); });
+        showReportNotice(uiText("\u63d0\u793a"),
+                         uiText("\u672a\u68c0\u6d4b\u5230\u767b\u5f55\u7528\u6237\uff0c\u8bf7\u91cd\u65b0\u767b\u5f55\u540e\u518d\u8bd5\u3002"));
         return;
     }
 
     if (!m_reportService) {
-        showUserActionNotice(this,
-                             uiText("\u670d\u52a1\u4e0d\u53ef\u7528"),
-                             uiText("\u5468\u62a5\u670d\u52a1\u672a\u521d\u59cb\u5316\uff0c\u8bf7\u91cd\u542f\u5e94\u7528\u540e\u518d\u8bd5\u3002"),
-                             [this](const QString &message) { showReportStatus(message); });
+        showReportNotice(uiText("\u670d\u52a1\u4e0d\u53ef\u7528"),
+                         uiText("\u5468\u62a5\u670d\u52a1\u672a\u521d\u59cb\u5316\uff0c\u8bf7\u91cd\u542f\u5e94\u7528\u540e\u518d\u8bd5\u3002"));
         return;
     }
 
     if (DatabaseManager::instance().getLatestPlanId(m_currentUserId) < 0) {
-        showUserActionNotice(this,
-                             uiText("\u6682\u65e0\u8ba1\u5212"),
-                             uiText("\u6682\u65e0\u53ef\u7528\u8ba1\u5212\u6570\u636e\uff0c\u9700\u8981\u5148\u751f\u6210\u5065\u5eb7\u8ba1\u5212\u540e\u518d\u751f\u6210\u5468\u62a5\u3002"),
-                             [this](const QString &message) { showReportStatus(message); });
+        showReportNotice(uiText("\u6682\u65e0\u8ba1\u5212"),
+                         uiText("\u6682\u65e0\u53ef\u7528\u8ba1\u5212\u6570\u636e\uff0c\u9700\u8981\u5148\u751f\u6210\u5065\u5eb7\u8ba1\u5212\u540e\u518d\u751f\u6210\u5468\u62a5\u3002"));
         return;
     }
 
@@ -10803,10 +10939,8 @@ void MainWindow::onGenerateReport()
     const QString todayStr = QDate::currentDate().toString(QStringLiteral("yyyy-MM-dd"));
     for (const auto &report : reports) {
         if (report.type != QStringLiteral("deep_analysis") && report.createdAt.startsWith(todayStr)) {
-            showUserActionNotice(this,
-                                 uiText("\u4eca\u65e5\u5df2\u751f\u6210"),
-                                 uiText("\u4eca\u5929\u5df2\u7ecf\u751f\u6210\u8fc7\u5468\u62a5\uff0c\u660e\u5929\u518d\u6765\u770b\u65b0\u7684\u603b\u7ed3\u5427\u3002"),
-                                 [this](const QString &message) { showReportStatus(message); });
+            showReportNotice(uiText("\u4eca\u65e5\u5df2\u751f\u6210"),
+                             uiText("\u4eca\u5929\u5df2\u7ecf\u751f\u6210\u8fc7\u5468\u62a5\uff0c\u660e\u5929\u518d\u6765\u770b\u65b0\u7684\u603b\u7ed3\u5427\u3002"));
             return;
         }
     }
@@ -10814,26 +10948,20 @@ void MainWindow::onGenerateReport()
     const LifeBalanceAI::Models::UserInfo info =
         DatabaseManager::instance().getUserInfo(m_currentUserId);
     if (info.role != QStringLiteral("Ascendant") && info.streakDays < 30) {
-        showUserActionNotice(this,
-                             uiText("\u6761\u4ef6\u4e0d\u8db3"),
-                             uiText("\u63a2\u7d22\u8005\u9700\u8fde\u7eed\u6253\u5361 30 \u5929\u624d\u80fd\u751f\u6210\u5468\u62a5\u3002\u4f60\u5f53\u524d\u8fde\u7eed\u6253\u5361 %1 \u5929\uff1b\u5347\u7ea7\u5f8b\u884c\u8005\u53ef\u89e3\u9501\u6bcf\u5468\u62a5\u544a\u3002").arg(info.streakDays),
-                             [this](const QString &message) { showReportStatus(message); });
+        showReportNotice(uiText("\u6761\u4ef6\u4e0d\u8db3"),
+                         uiText("\u63a2\u7d22\u8005\u9700\u8fde\u7eed\u6253\u5361 30 \u5929\u624d\u80fd\u751f\u6210\u5468\u62a5\u3002\u4f60\u5f53\u524d\u8fde\u7eed\u6253\u5361 %1 \u5929\uff1b\u5347\u7ea7\u5f8b\u884c\u8005\u53ef\u89e3\u9501\u6bcf\u5468\u62a5\u544a\u3002").arg(info.streakDays));
         return;
     }
 
     if (!AIManager::hasChatApiKey()) {
-        showUserActionNotice(this,
-                             uiText("\u0041\u0049 \u672a\u914d\u7f6e"),
-                             uiText("\u0041\u0049 \u670d\u52a1\u672a\u914d\u7f6e\uff0c\u6682\u65f6\u65e0\u6cd5\u751f\u6210\u5468\u62a5\u3002"),
-                             [this](const QString &message) { showReportStatus(message); });
+        showReportNotice(uiText("\u0041\u0049 \u672a\u914d\u7f6e"),
+                         uiText("\u0041\u0049 \u670d\u52a1\u672a\u914d\u7f6e\uff0c\u6682\u65f6\u65e0\u6cd5\u751f\u6210\u5468\u62a5\u3002"));
         return;
     }
 
     if (!m_reportService->canGenerateReport(m_currentUserId)) {
-        showUserActionNotice(this,
-                             uiText("\u6682\u65f6\u4e0d\u53ef\u7528"),
-                             uiText("\u6682\u65f6\u65e0\u6cd5\u751f\u6210\u5468\u62a5\uff0c\u8bf7\u68c0\u67e5\u8ba1\u5212\u548c\u6253\u5361\u6570\u636e\u540e\u91cd\u8bd5\u3002"),
-                             [this](const QString &message) { showReportStatus(message); });
+        showReportNotice(uiText("\u6682\u65f6\u4e0d\u53ef\u7528"),
+                         uiText("\u6682\u65f6\u65e0\u6cd5\u751f\u6210\u5468\u62a5\uff0c\u8bf7\u68c0\u67e5\u8ba1\u5212\u548c\u6253\u5361\u6570\u636e\u540e\u91cd\u8bd5\u3002"));
         return;
     }
 
@@ -10959,14 +11087,84 @@ void MainWindow::onReportReady(int userId, const LifeBalanceAI::Models::ReportDa
 
 
 
-        if (AnimatedDialog::choose(this, tr("报告已生成"), summaryText + "\n" + tr("是否导出为 PNG 文件？"),
+    if (parsedSummary.ok) {
+        const QJsonObject ai = parsedSummary.summaryObject;
+        summaryText = QString::fromUtf8("总体评价\n%1\n\n").arg(ai[QStringLiteral("summary")].toString());
+        summaryText += QString::fromUtf8("饮食评分：%1/10\n运动评分：%2/10\n完成率：%3%\n")
+                           .arg(ai[QStringLiteral("diet_score")].toInt())
+                           .arg(ai[QStringLiteral("exercise_score")].toInt())
+                           .arg(ai[QStringLiteral("completion_rate")].toInt());
+        summaryText += QString::fromUtf8("\n下周目标：%1").arg(ai[QStringLiteral("next_week_goal")].toString());
+    }
 
+    QDialog reportReadyDialog(this);
+    reportReadyDialog.setObjectName(QStringLiteral("reportHistoryDialog"));
+    reportReadyDialog.setWindowTitle(QString::fromUtf8("报告已生成"));
+    reportReadyDialog.setAttribute(Qt::WA_StyledBackground, true);
+    reportReadyDialog.setStyleSheet(QStringLiteral(
+        "#reportHistoryDialog{"
+        "  background:#FFFDF9;"
+        "  border:1px solid #E8DED2;"
+        "  border-radius:16px;"
+        "}"
+    ));
+#ifdef Q_OS_ANDROID
+    reportReadyDialog.setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
+#endif
 
+    auto *readyLayout = new QVBoxLayout(&reportReadyDialog);
+    readyLayout->setContentsMargins(18, 16, 18, 16);
+    readyLayout->setSpacing(10);
 
-            tr("导出图片"), tr("确定")) == 0)
+    auto *readyTitle = new QLabel(QString::fromUtf8("报告已生成"), &reportReadyDialog);
+    readyTitle->setObjectName(QStringLiteral("reportHistoryTitle"));
+    readyLayout->addWidget(readyTitle);
 
+    auto *readyHint = new QLabel(QString::fromUtf8("周报已保存到历史记录，你也可以导出为 PNG 图片。"), &reportReadyDialog);
+    readyHint->setObjectName(QStringLiteral("reportHistoryHint"));
+    readyHint->setWordWrap(true);
+    readyLayout->addWidget(readyHint);
 
+    auto *readySummary = new QTextEdit(&reportReadyDialog);
+    readySummary->setObjectName(QStringLiteral("reportDetailText"));
+    readySummary->setReadOnly(true);
+    readySummary->setPlainText(summaryText);
+    readySummary->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+#ifdef Q_OS_ANDROID
+    readySummary->setMinimumHeight(150);
+    readySummary->setMaximumHeight(250);
+#else
+    readySummary->setMinimumHeight(190);
+#endif
+    readyLayout->addWidget(readySummary, 1);
 
+    auto *readyButtons = new QHBoxLayout();
+    readyButtons->setSpacing(10);
+    auto *btnExportReady = UiFactory::primaryButton(QString::fromUtf8("导出 PNG"), &reportReadyDialog);
+    auto *btnConfirmReady = UiFactory::secondaryButton(QString::fromUtf8("确定"), &reportReadyDialog);
+    readyButtons->addWidget(btnExportReady);
+    readyButtons->addWidget(btnConfirmReady);
+    readyLayout->addLayout(readyButtons);
+
+    bool exportReady = false;
+    connect(btnExportReady, &QPushButton::clicked, &reportReadyDialog, [&]() {
+        exportReady = true;
+        reportReadyDialog.accept();
+    });
+    connect(btnConfirmReady, &QPushButton::clicked, &reportReadyDialog, &QDialog::accept);
+
+#ifdef Q_OS_ANDROID
+    {
+        const QRect available = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogAvailableRect();
+        reportReadyDialog.resize(qMin(available.width(), qMax(320, int(available.width() * 0.88))),
+                                 qMin(available.height(), 360));
+        LifeBalanceAI::Ui::PlatformLayoutPolicy::centerWidgetOnSafeArea(&reportReadyDialog);
+    }
+#endif
+
+    reportReadyDialog.exec();
+
+    if (exportReady)
         onExportReport(report.rid, QStringLiteral("png"));
 
 
