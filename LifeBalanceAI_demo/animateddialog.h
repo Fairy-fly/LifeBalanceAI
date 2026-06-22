@@ -1,6 +1,7 @@
 #ifndef ANIMATEDDIALOG_H
 #define ANIMATEDDIALOG_H
 #include <QDialog>
+#include <QFrame>
 #include <QPropertyAnimation>
 #include <QGraphicsDropShadowEffect>
 #include <QGraphicsOpacityEffect>
@@ -45,6 +46,9 @@ private:
     QScrollArea *m_msgScroll=nullptr;
     QPushButton *m_ok=nullptr, *m_btn2=nullptr;
     QWidget *m_accentBar=nullptr;
+    QFrame *m_panel=nullptr;
+    QFrame *m_shadowNear=nullptr;
+    QFrame *m_shadowFar=nullptr;
     AnimStyle m_style;
     QString m_type = "info";
     int m_choiceResult = 0;
@@ -66,6 +70,10 @@ private:
     QLabel *m_ttl=nullptr, *m_pmt=nullptr;
     QLineEdit *m_inp=nullptr;
     QPushButton *m_ok=nullptr, *m_ccl=nullptr;
+    QFrame *m_panel=nullptr;
+    QFrame *m_shadowNear=nullptr;
+    QFrame *m_shadowFar=nullptr;
+    bool m_isAdjustDialog=false;
     QString m_result;
 };
 #endif

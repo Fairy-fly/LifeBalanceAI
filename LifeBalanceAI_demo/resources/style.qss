@@ -33,10 +33,11 @@ QLabel {
 }
 
 QLabel#label_5 {
-    font-family: "Smiley Sans Oblique", "Smiley Sans", "MiSans", "Noto Sans SC", "Microsoft YaHei UI", sans-serif;
+    font-family: "sans-serif-rounded", "MiSans Rounded", "MiSans", "HarmonyOS Sans SC", "OPPOSans", "vivo Sans", "Noto Sans SC", "Microsoft YaHei UI", sans-serif;
     color: #1A1A1A;
-    font-size: 30px;
+    font-size: 29px;
     font-weight: 500;
+    letter-spacing: 1.4px;
     padding: 2px 0;
 }
 
@@ -224,8 +225,8 @@ QLabel#loadingDot[active="true"] {
 QLabel#dialogTitle {
     font-family: "MiSans Medium", "MiSans", "Noto Sans SC", "Microsoft YaHei UI", sans-serif;
     font-size: 16px;
-    font-weight: 600;
-    color: #1A1A1A;
+    font-weight: 700;
+    color: #1F2A24;
 }
 
 QLabel#dialogTitle[class="warn"] {
@@ -272,7 +273,7 @@ QLabel#analysisDialogTitle {
     font-family: "MiSans Medium", "MiSans", "Noto Sans SC", "Microsoft YaHei UI", sans-serif;
     color: #1F2A24;
     font-size: 17px;
-    font-weight: 600;
+    font-weight: 700;
     padding: 2px 0;
 }
 
@@ -344,7 +345,7 @@ QLabel#reportHistoryTitle {
     font-family: "MiSans Medium", "MiSans", "Noto Sans SC", "Microsoft YaHei UI", sans-serif;
     color: #1F2A24;
     font-size: 18px;
-    font-weight: 600;
+    font-weight: 700;
 }
 
 QLabel#reportHistoryHint {
@@ -356,23 +357,39 @@ QLabel#reportHistoryHint {
 QListWidget#reportHistoryList {
     background: transparent;
     border: none;
-    padding: 2px;
+    padding: 1px 2px 8px 2px;
     outline: none;
 }
 
 QListWidget#reportHistoryList::item {
-    min-height: 64px;
-    padding: 9px 10px;
-    margin: 4px 0;
+    min-height: 60px;
+    padding: 8px 10px;
+    margin: 3px 0;
     border: 1px solid #E8DED2;
     border-radius: 12px;
-    background: #FFFDF9;
     color: #48423C;
     font-size: 13px;
 }
 
+QScrollArea#reportReadySummaryScroll {
+    background: #FFFDF9;
+    border: 1px solid #E8DED2;
+    border-radius: 12px;
+}
+
+QLabel#reportReadySummaryBody {
+    background: transparent;
+    color: #48423C;
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.55;
+    padding: 10px 12px 14px 12px;
+}
+
 QListWidget#reportHistoryList::item:hover {
-    background: #F0FAF5;
+    background: #FFFDF9;
+    border-color: #E8DED2;
+    color: #48423C;
 }
 
 QListWidget#reportHistoryList::item:selected {
@@ -1329,4 +1346,190 @@ QListWidget::item:hover {
 QListWidget::item:selected {
     background: #F0FAF5;
     color: #1A1A1A;
+}
+
+/* ============ Phase 6A: mobile visual system polish ============ */
+
+QLabel#label_5 {
+    font-family: "sans-serif-rounded", "MiSans Rounded", "MiSans", "HarmonyOS Sans SC", "OPPOSans", "vivo Sans", "Noto Sans SC", "Microsoft YaHei UI", sans-serif;
+    font-weight: 500;
+    letter-spacing: 1.4px;
+}
+
+QLabel#lblRegTitle,
+QLabel#lblPage5Title,
+QLabel#pageTitle,
+QLabel#warmTitle,
+QLabel#analysisPageTitle,
+QLabel#reportPageTitle {
+    font-weight: 500;
+}
+
+QLabel#emptyTitle,
+QLabel#reportIntroTitle,
+QLabel#reportMetricsTitle,
+QLabel#reportMetricModuleTitle,
+QLabel#analysisIntroTitle {
+    font-weight: 500;
+}
+
+QLabel#reportIntroBody,
+QLabel#analysisIntroBody,
+QLabel#dialogMessage,
+QLabel#dialogPrompt,
+QLabel#feedbackPrompt,
+QLabel[class="profileValue"] {
+    font-weight: 400;
+    color: #48423C;
+}
+
+QFrame#reportIntroCard,
+QFrame#reportMetricsCard,
+QFrame#reportMetricModule,
+QFrame#analysisIntroCard,
+QFrame#infoCard,
+QFrame#emptyState {
+    border-color: #EFE4D8;
+}
+
+QPushButton {
+    font-weight: 500;
+}
+
+QPushButton#btnLogin,
+QPushButton#btnRegister,
+QPushButton#btnSaveProfile,
+QPushButton#btnSendVerifyCode,
+QPushButton#btnPay6,
+QPushButton[class="primary"] {
+    background: #4EAD7D;
+    border-color: #4EAD7D;
+    font-weight: 500;
+}
+
+QPushButton[class="secondary"] {
+    background: #F4FAFD;
+    border-color: #C9DDED;
+    color: #527FA3;
+    font-weight: 500;
+}
+
+QPushButton[class="ghost"] {
+    color: #2F6F57;
+    font-weight: 500;
+}
+
+QPushButton[class="danger"] {
+    background: #FFF6F4;
+    border-color: #EBCBC5;
+    color: #B7645C;
+    font-weight: 500;
+}
+
+QPushButton:disabled,
+QPushButton[class="primary"]:disabled,
+QPushButton[class="secondary"]:disabled,
+QPushButton[class="danger"]:disabled,
+QPushButton[class="smallAction"]:disabled {
+    background: #F7F1EA;
+    border-color: #EFE4D8;
+    color: #B5ADA5;
+}
+
+QPushButton#btnFeedbackTodayMorning,
+QPushButton#btnFeedbackTodayLunch,
+QPushButton#btnFeedbackTodayDinner,
+QPushButton#btnFeedbackTodayExercise,
+QPushButton#btnFeedbackTomorrowMorning,
+QPushButton#btnFeedbackTomorrowLunch,
+QPushButton#btnFeedbackTomorrowDinner,
+QPushButton#btnFeedbackTomorrowExercise,
+QPushButton#btnFeedbackDayAfterMorning,
+QPushButton#btnFeedbackDayAfterLunch,
+QPushButton#btnFeedbackDayAfterDinner,
+QPushButton#btnFeedbackDayAfterExercise {
+    background: #FFF8F1;
+    color: #B86A3F;
+    border-color: #EECBAA;
+    font-weight: 500;
+}
+
+QPushButton#btnAdjust {
+    background: #F4FAFD;
+    color: #527FA3;
+    border-color: #C9DDED;
+    font-weight: 500;
+}
+
+QLabel#dialogTitle {
+    font-weight: 700;
+    color: #1F2A24;
+}
+
+QLabel#dialogTitle[class="warn"] {
+    color: #B86A3F;
+}
+
+QWidget#dialogAccentBar {
+    min-width: 0px;
+    max-width: 0px;
+    background: transparent;
+}
+
+QDialog#feedbackDialog,
+QDialog#analysisDialog,
+QDialog#reportHistoryDialog {
+    background: #FFFDF9;
+    border: 1px solid #E5D9CC;
+    border-radius: 16px;
+}
+
+QLabel#reportHistoryTitle,
+QLabel#analysisDialogTitle {
+    font-weight: 700;
+    color: #1F2A24;
+}
+
+QLabel#reportHistoryHint,
+QLabel#analysisDialogHint {
+    font-weight: 400;
+    color: #837A72;
+}
+
+QScrollArea#reportReadySummaryScroll {
+    background: #FFFDF9;
+    border: 1px solid #E8DED2;
+    border-radius: 12px;
+}
+
+QLabel#reportReadySummaryBody {
+    background: transparent;
+    color: #48423C;
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.55;
+    padding: 10px 12px 14px 12px;
+}
+
+QLineEdit:focus,
+QTextEdit:focus,
+QPlainTextEdit:focus,
+QSpinBox:focus,
+QComboBox:focus {
+    border: 1px solid #6FC394;
+    background: #FFFDF9;
+}
+
+QTextEdit,
+QPlainTextEdit {
+    selection-background-color: #CFEFDE;
+    selection-color: #1F2A24;
+}
+
+QLabel#reportMetricHint,
+QLabel#reportIntroNote,
+QLabel#analysisIntroNote,
+QLabel#legalDisclaimer {
+    color: #958C84;
+    font-weight: 400;
 }

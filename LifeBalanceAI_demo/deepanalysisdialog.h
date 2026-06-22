@@ -5,6 +5,8 @@
 #include "models/dto.h"
 
 class QLabel;
+class QFrame;
+class QPaintEvent;
 class QScrollArea;
 
 class DeepAnalysisDialog : public QDialog
@@ -19,7 +21,12 @@ public:
 private:
     void setupUi();
     QLabel *addSection(const QString &title, const QString &content);
+    void syncShadowLayers();
+    void paintEvent(QPaintEvent *event) override;
 
+    QFrame      *m_panel = nullptr;
+    QFrame      *m_shadowNear = nullptr;
+    QFrame      *m_shadowFar = nullptr;
     QScrollArea *m_scrollArea;
     QWidget     *m_contentWidget;
 };

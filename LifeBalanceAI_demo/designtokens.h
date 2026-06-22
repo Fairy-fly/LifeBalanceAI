@@ -217,7 +217,7 @@ inline QString boldFontStack()
 
 inline QString brandFontStack()
 {
-    return QStringLiteral("\"Smiley Sans Oblique\", \"Smiley Sans\", \"MiSans Bold\", \"MiSans\", \"Noto Sans SC\", sans-serif");
+    return QStringLiteral("\"sans-serif-rounded\", \"MiSans Rounded\", \"MiSans\", \"HarmonyOS Sans SC\", \"OPPOSans\", \"vivo Sans\", \"Noto Sans SC\", \"Microsoft YaHei UI\", sans-serif");
 }
 
 // ============ DARK MODE THEME ============

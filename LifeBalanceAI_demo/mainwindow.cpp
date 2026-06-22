@@ -65,8 +65,6 @@
 
 #include <QDebug>
 
-
-
 #include <QCoreApplication>
 #include <QMessageBox>
 
@@ -117,6 +115,7 @@
 
 
 #include <QDate>
+#include <QDateTime>
 
 
 
@@ -131,6 +130,7 @@
 #include <QTextEdit>
 #include <QPlainTextEdit>
 #include <QFile>
+#include <QFileInfo>
 
 
 
@@ -202,9 +202,12 @@
 
 #include <QGraphicsOpacityEffect>
 
-#include <QFont>
-
 #include <QFontDatabase>
+
+#include <QFont>
+#include <QFontMetrics>
+#include <QFrame>
+
 
 #include <QGuiApplication>
 
@@ -218,6 +221,8 @@
 
 #include <QScrollerProperties>
 
+#include <QSignalBlocker>
+
 #include <QSpinBox>
 
 #include <QStackedWidget>
@@ -225,6 +230,7 @@
 #include <QFrame>
 
 #include <algorithm>
+#include <utility>
 
 
 
@@ -310,6 +316,150 @@ void relaxAndroidWidthConstraints(QWidget *root)
     Q_UNUSED(root);
 #endif
 }
+
+void prepareMobileModal(QDialog *dialog,
+                        LifeBalanceAI::Ui::PlatformLayoutPolicy::DialogRole role,
+                        const QSize &hint,
+                        bool slightlyAboveCenter = false)
+{
+#ifdef Q_OS_ANDROID
+    if (!dialog)
+        return;
+
+    dialog->setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
+    dialog->setModal(true);
+    const QRect available = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogAvailableRect();
+    QSize target = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogSizeForRole(role, hint);
+    if (!target.isValid())
+        target = hint;
+    if (target.isValid()) {
+        dialog->resize(target.boundedTo(available.size()));
+    } else {
+        dialog->adjustSize();
+    }
+
+    LifeBalanceAI::Ui::PlatformLayoutPolicy::centerWidgetOnSafeArea(dialog);
+    if (slightlyAboveCenter) {
+        const int lift = qMin(18, qMax(0, available.height() / 36));
+        const int y = qMax(available.y(), dialog->y() - lift);
+        dialog->move(dialog->x(), y);
+    }
+#else
+    Q_UNUSED(dialog);
+    Q_UNUSED(role);
+    Q_UNUSED(hint);
+    Q_UNUSED(slightlyAboveCenter);
+#endif
+}
+
+#ifdef Q_OS_ANDROID
+QFrame *createAndroidChildModalPanel(QDialog *dialog)
+{
+    if (!dialog)
+        return nullptr;
+
+    dialog->setObjectName(QStringLiteral("mobileModalOverlay"));
+    dialog->setWindowFlags(Qt::Widget | Qt::FramelessWindowHint);
+    dialog->setWindowModality(Qt::ApplicationModal);
+    dialog->setModal(true);
+    dialog->setAttribute(Qt::WA_TranslucentBackground, true);
+    dialog->setAttribute(Qt::WA_NoSystemBackground, true);
+    dialog->setAttribute(Qt::WA_StyledBackground, true);
+    dialog->setAutoFillBackground(false);
+    dialog->setStyleSheet(QStringLiteral(
+        "QDialog#mobileModalOverlay{background:rgba(24,28,25,118);border:none;}"
+        "QFrame#mobileModalPanel{background:#FFFDF9;border:1px solid #E5D9CC;border-radius:16px;}"));
+
+    QWidget *host = dialog->parentWidget() ? dialog->parentWidget()->window() : nullptr;
+    const QRect hostRect = host ? host->rect()
+                                : QRect(QPoint(0, 0),
+                                        QGuiApplication::primaryScreen()
+                                            ? QGuiApplication::primaryScreen()->geometry().size()
+                                            : QSize(390, 844));
+    dialog->setGeometry(hostRect);
+
+    auto *outer = new QVBoxLayout(dialog);
+    outer->setContentsMargins(18, 0, 18, 0);
+    outer->setSpacing(0);
+
+    auto *dimLayer = new QFrame(dialog);
+    dimLayer->setObjectName(QStringLiteral("mobileModalDim"));
+    dimLayer->setAttribute(Qt::WA_StyledBackground, true);
+    dimLayer->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+    dimLayer->setStyleSheet(QStringLiteral(
+        "QFrame#mobileModalDim{background:rgba(24,28,25,118);border:none;}"));
+    dimLayer->setGeometry(dialog->rect());
+
+    auto *shadowFar = new QFrame(dialog);
+    shadowFar->setObjectName(QStringLiteral("mobileModalShadowFar"));
+    shadowFar->setAttribute(Qt::WA_StyledBackground, true);
+    shadowFar->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+    shadowFar->setStyleSheet(QStringLiteral(
+        "QFrame#mobileModalShadowFar{background:rgba(30,36,32,9);border-radius:18px;border:none;}"));
+
+    auto *shadowNear = new QFrame(dialog);
+    shadowNear->setObjectName(QStringLiteral("mobileModalShadowNear"));
+    shadowNear->setAttribute(Qt::WA_StyledBackground, true);
+    shadowNear->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+    shadowNear->setStyleSheet(QStringLiteral(
+        "QFrame#mobileModalShadowNear{background:rgba(30,36,32,18);border-radius:18px;border:none;}"));
+
+    auto *panel = new QFrame(dialog);
+    panel->setObjectName(QStringLiteral("mobileModalPanel"));
+    panel->setAttribute(Qt::WA_StyledBackground, true);
+    outer->addWidget(panel, 0, Qt::AlignCenter);
+    return panel;
+}
+
+void syncAndroidChildModalShadow(QDialog *dialog)
+{
+    if (!dialog)
+        return;
+
+    auto *panel = dialog->findChild<QFrame *>(QStringLiteral("mobileModalPanel"), Qt::FindDirectChildrenOnly);
+    auto *dimLayer = dialog->findChild<QFrame *>(QStringLiteral("mobileModalDim"), Qt::FindDirectChildrenOnly);
+    auto *shadowFar = dialog->findChild<QFrame *>(QStringLiteral("mobileModalShadowFar"), Qt::FindDirectChildrenOnly);
+    auto *shadowNear = dialog->findChild<QFrame *>(QStringLiteral("mobileModalShadowNear"), Qt::FindDirectChildrenOnly);
+    if (!panel || !shadowFar || !shadowNear || panel->geometry().isEmpty())
+        return;
+
+    if (dimLayer) {
+        dimLayer->setGeometry(dialog->rect());
+        dimLayer->show();
+        dimLayer->lower();
+    }
+    const QRect panelRect = panel->geometry();
+    shadowFar->setGeometry(panelRect.adjusted(-1, 0, 5, 4).translated(4, 10));
+    shadowNear->setGeometry(panelRect.adjusted(0, 0, 3, 2).translated(2, 5));
+    shadowFar->show();
+    shadowNear->show();
+    shadowFar->lower();
+    shadowNear->raise();
+    shadowNear->stackUnder(panel);
+    panel->raise();
+}
+
+void finalizeAndroidChildModal(QDialog *dialog,
+                               QFrame *panel,
+                               LifeBalanceAI::Ui::PlatformLayoutPolicy::DialogRole role,
+                               const QSize &hint)
+{
+    if (!dialog || !panel)
+        return;
+
+    const QRect available = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogAvailableRect();
+    QSize target = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogSizeForRole(
+        role,
+        hint.expandedTo(panel->sizeHint()).expandedTo(panel->minimumSizeHint()));
+    target = target.boundedTo(available.size());
+    panel->setFixedSize(target);
+
+    QWidget *host = dialog->parentWidget() ? dialog->parentWidget()->window() : nullptr;
+    dialog->setGeometry(host ? host->rect() : QRect(QPoint(0, 0), available.size()));
+    syncAndroidChildModalShadow(dialog);
+    QTimer::singleShot(0, dialog, [dialog]() { syncAndroidChildModalShadow(dialog); });
+}
+#endif
 
 void installKineticVerticalScroll(QWidget *root)
 {
@@ -436,6 +586,131 @@ void applyAndroidWindowInsets(QWidget *central)
     Q_UNUSED(central);
 #endif
 }
+
+class ReportListTouchStateFilter final : public QObject
+{
+public:
+    ReportListTouchStateFilter(QListWidget *list, std::function<void(int)> onTap)
+        : QObject(list), m_list(list), m_onTap(std::move(onTap))
+    {
+    }
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override
+    {
+        Q_UNUSED(watched)
+        if (!m_list)
+            return false;
+
+        switch (event->type()) {
+        case QEvent::TouchBegin: {
+            auto *touch = static_cast<QTouchEvent *>(event);
+            if (touch->points().isEmpty())
+                return true;
+            m_pressPos = touch->points().first().position().toPoint();
+            m_lastPos = m_pressPos;
+            m_dragging = false;
+            m_pressScrollValue = m_list->verticalScrollBar() ? m_list->verticalScrollBar()->value() : 0;
+            m_pressMsecs = QDateTime::currentMSecsSinceEpoch();
+            m_list->setProperty("reportTouchMoved", false);
+            return false;
+        }
+        case QEvent::TouchUpdate: {
+            auto *touch = static_cast<QTouchEvent *>(event);
+            if (touch->points().isEmpty())
+                return true;
+            const QPoint currentPos = touch->points().first().position().toPoint();
+            if ((currentPos - m_pressPos).manhattanLength() > 12) {
+                m_dragging = true;
+                m_list->setProperty("reportTouchMoved", true);
+            }
+            m_lastPos = currentPos;
+            return false;
+        }
+        case QEvent::TouchEnd: {
+            auto *touch = static_cast<QTouchEvent *>(event);
+            const QPoint releasePos = touch->points().isEmpty()
+                                          ? m_lastPos
+                                          : touch->points().first().position().toPoint();
+            const int currentScrollValue = m_list->verticalScrollBar() ? m_list->verticalScrollBar()->value() : m_pressScrollValue;
+            const bool scrolled = m_dragging
+                                  || m_list->property("reportTouchMoved").toBool()
+                                  || m_list->property("reportListScrolling").toBool()
+                                  || qAbs(currentScrollValue - m_pressScrollValue) > 2
+                                  || (QDateTime::currentMSecsSinceEpoch() - m_pressMsecs) > 260;
+            m_dragging = false;
+            QTimer::singleShot(720, m_list, [list = m_list]() {
+                if (list)
+                    list->setProperty("reportTouchMoved", false);
+            });
+            return false;
+        }
+        case QEvent::TouchCancel:
+            m_dragging = false;
+            m_list->setProperty("reportTouchMoved", false);
+            return false;
+        case QEvent::MouseButtonPress: {
+            auto *mouse = static_cast<QMouseEvent *>(event);
+            m_pressPos = mouse->position().toPoint();
+            m_lastPos = m_pressPos;
+            m_dragging = false;
+            m_pressScrollValue = m_list->verticalScrollBar() ? m_list->verticalScrollBar()->value() : 0;
+            m_pressMsecs = QDateTime::currentMSecsSinceEpoch();
+            m_list->setProperty("reportTouchMoved", false);
+            return true;
+        }
+        case QEvent::MouseMove: {
+            auto *mouse = static_cast<QMouseEvent *>(event);
+            const QPoint currentPos = mouse->position().toPoint();
+            if ((currentPos - m_pressPos).manhattanLength() > 12) {
+                m_dragging = true;
+                m_list->setProperty("reportTouchMoved", true);
+            }
+            if (m_dragging) {
+                if (QScrollBar *bar = m_list->verticalScrollBar()) {
+                    const int dy = currentPos.y() - m_lastPos.y();
+                    bar->setValue(bar->value() - dy);
+                }
+                m_lastPos = currentPos;
+            }
+            return true;
+        }
+        case QEvent::MouseButtonRelease: {
+            auto *mouse = static_cast<QMouseEvent *>(event);
+            const int currentScrollValue = m_list->verticalScrollBar() ? m_list->verticalScrollBar()->value() : m_pressScrollValue;
+            const bool scrolled = m_dragging
+                                  || m_list->property("reportTouchMoved").toBool()
+                                  || m_list->property("reportListScrolling").toBool()
+                                  || qAbs(currentScrollValue - m_pressScrollValue) > 2
+                                  || (QDateTime::currentMSecsSinceEpoch() - m_pressMsecs) > 260;
+            if (!scrolled && m_onTap) {
+                const QModelIndex index = m_list->indexAt(mouse->position().toPoint());
+                if (index.isValid())
+                    m_onTap(index.row());
+            }
+            m_dragging = false;
+            QTimer::singleShot(720, m_list, [list = m_list]() {
+                if (list)
+                    list->setProperty("reportTouchMoved", false);
+            });
+            return true;
+        }
+        default:
+            break;
+        }
+
+        return false;
+    }
+
+private:
+    QListWidget *m_list = nullptr;
+    std::function<void(int)> m_onTap;
+    QPoint m_pressPos;
+    QPoint m_lastPos;
+    int m_pressScrollValue = 0;
+    qint64 m_pressMsecs = 0;
+    bool m_dragging = false;
+};
 
 } // namespace
 
@@ -568,6 +843,13 @@ connect(m_deepAnalysisService, &LifeBalanceAI::Services::DeepAnalysisService::an
 
 
             this, [this](int reportId, const QString &path) {
+        Q_UNUSED(reportId);
+        hideLoadingBar();
+        const QString fileName = QFileInfo(path).fileName();
+        AnimatedDialog::info(this,
+                             QString::fromUtf8("导出成功"),
+                             QString::fromUtf8("报告已保存到应用下载目录\n%1").arg(fileName));
+        return;
 
 
 
@@ -2829,23 +3111,42 @@ void MainWindow::applyWarmVisualPolish()
 
     if (ui->label_5) {
         ui->label_5->setText(QStringLiteral("LifeBalance AI"));
+        ui->label_5->setAlignment(Qt::AlignCenter);
+        ui->label_5->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+        ui->label_5->setMinimumHeight(48);
+        ui->label_5->setMaximumHeight(64);
         const QStringList families = QFontDatabase::families();
         const QStringList displayCandidates = {
+            QStringLiteral("sans-serif-rounded"),
+            QStringLiteral("Google Sans"),
+            QStringLiteral("Roboto"),
+            QStringLiteral("Noto Sans"),
+            QStringLiteral("Noto Sans SC"),
+            QStringLiteral("Microsoft YaHei UI"),
             QStringLiteral("MiSans"),
-            QStringLiteral("MiSans Regular"),
-            QStringLiteral("PingFang SC"),
-            QStringLiteral("Noto Sans SC")
+            QStringLiteral("HarmonyOS Sans SC")
         };
+        QFont logoFont = ui->label_5->font();
         for (const QString &candidate : displayCandidates) {
-            if (families.contains(candidate, Qt::CaseInsensitive)) {
-                QFont logoFont = ui->label_5->font();
+            if (candidate == QStringLiteral("sans-serif-rounded")
+                || families.contains(candidate, Qt::CaseInsensitive)) {
                 logoFont.setFamily(candidate);
-                logoFont.setWeight(QFont::Normal);
-                logoFont.setPointSize(29);
-                ui->label_5->setFont(logoFont);
                 break;
             }
         }
+        logoFont.setWeight(QFont::Normal);
+        logoFont.setPointSize(27);
+        logoFont.setLetterSpacing(QFont::PercentageSpacing, 108);
+        logoFont.setStyleStrategy(QFont::PreferAntialias);
+        ui->label_5->setFont(logoFont);
+        ui->label_5->setStyleSheet(QStringLiteral(
+            "QLabel#label_5{"
+            "  color:#232520;"
+            "  background:transparent;"
+            "  font-weight:400;"
+            "  letter-spacing:1.8px;"
+            "  padding:0;"
+            "}"));
     }
     if (ui->lblLoginSubtitle)
         ui->lblLoginSubtitle->setText(QStringLiteral("把健康照顾成每天一点点的安心"));
@@ -8366,7 +8667,7 @@ void MainWindow::onViewYesterdayClicked()
 
 
 
-    display += tr("\U0001F4CB 昨日规划：%1\n\n").arg(
+    display += tr("%1\n\n").arg(
 
 
 
@@ -8386,19 +8687,19 @@ void MainWindow::onViewYesterdayClicked()
 
 
 
-        if (item.timeSlot == QStringLiteral("breakfast")) slotChinese = tr("\U0001F373 早餐");
+        if (item.timeSlot == QStringLiteral("breakfast")) slotChinese = tr("早餐");
 
 
 
-        else if (item.timeSlot == QStringLiteral("lunch"))    slotChinese = tr("\U0001F35A 午餐");
+        else if (item.timeSlot == QStringLiteral("lunch"))    slotChinese = tr("午餐");
 
 
 
-        else if (item.timeSlot == QStringLiteral("dinner"))   slotChinese = tr("\U0001F31B 晚餐");
+        else if (item.timeSlot == QStringLiteral("dinner"))   slotChinese = tr("晚餐");
 
 
 
-        else if (item.timeSlot == QStringLiteral("sports"))   slotChinese = tr("\U0001F3C3 运动");
+        else if (item.timeSlot == QStringLiteral("sports"))   slotChinese = tr("运动");
 
 
 
@@ -8410,7 +8711,7 @@ void MainWindow::onViewYesterdayClicked()
 
 
 
-        QString status = item.isDone ? tr("✅ 已完成") : tr("❌ 未完成");
+        QString status = item.isDone ? tr("已完成") : tr("未完成");
 
 
 
@@ -8418,7 +8719,7 @@ void MainWindow::onViewYesterdayClicked()
 
 
 
-        display += QStringLiteral("  %1  %2\n%3\n\n").arg(slotChinese, status, item.content);
+        display += QStringLiteral("%1 · %2\n%3\n\n").arg(slotChinese, status, item.content);
 
 
 
@@ -8426,9 +8727,10 @@ void MainWindow::onViewYesterdayClicked()
 
 
 
-
-
-
+#ifdef Q_OS_ANDROID
+    AnimatedDialog::info(this, QString::fromUtf8("昨日计划回顾"), display.trimmed());
+    return;
+#endif
 
     QDialog reviewDialog(this);
     reviewDialog.setObjectName(QStringLiteral("yesterdayReviewDialog"));
@@ -8439,7 +8741,9 @@ void MainWindow::onViewYesterdayClicked()
 #ifdef Q_OS_ANDROID
     const QRect available = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogAvailableRect();
     const int dialogW = qBound(300, available.width() * 86 / 100, 360);
-    const int dialogH = qBound(320, available.height() * 58 / 100, 420);
+    const int estimatedLines = qMax(4, display.count(QChar('\n')) + 1);
+    const int contentH = qBound(150, estimatedLines * 22 + 56, available.height() * 58 / 100);
+    const int dialogH = qBound(280, contentH + 116, available.height() * 70 / 100);
     reviewDialog.setFixedSize(dialogW, dialogH);
 #else
     reviewDialog.resize(460, 520);
@@ -8469,6 +8773,10 @@ void MainWindow::onViewYesterdayClicked()
     content->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     content->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     content->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+#ifdef Q_OS_ANDROID
+    content->setMinimumHeight(qMin(180, contentH));
+    content->setMaximumHeight(available.height() * 58 / 100);
+#endif
     layout->addWidget(content, 1);
 
     auto *closeButton = new QPushButton(tr("知道了"), &reviewDialog);
@@ -9719,8 +10027,18 @@ void MainWindow::showReportHistory()
 
 
     QDialog picker(this);
+#ifdef Q_OS_ANDROID
+    QFrame *pickerPanel = createAndroidChildModalPanel(&picker);
+    QWidget *pickerContent = pickerPanel ? static_cast<QWidget *>(pickerPanel)
+                                         : static_cast<QWidget *>(&picker);
+#else
+    QWidget *pickerContent = &picker;
+#endif
+#ifndef Q_OS_ANDROID
     picker.setObjectName(QStringLiteral("reportHistoryDialog"));
+#endif
     picker.setWindowTitle(tr("我的周报"));
+#ifndef Q_OS_ANDROID
     picker.setAttribute(Qt::WA_StyledBackground, true);
     picker.setStyleSheet(QStringLiteral(
         "#reportHistoryDialog{"
@@ -9729,43 +10047,120 @@ void MainWindow::showReportHistory()
         "  border-radius:16px;"
         "}"
     ));
+#endif
 #ifdef Q_OS_ANDROID
     const QRect pickerAvailable = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogAvailableRect();
-    picker.setMinimumSize(qMax(300, qMin(pickerAvailable.width(), 430)),
-                          qMax(360, qMin(pickerAvailable.height(), 520)));
+    if (pickerPanel) {
+        pickerPanel->setMinimumSize(qMax(300, qMin(pickerAvailable.width(), 410)),
+                                    qMax(320, qMin(pickerAvailable.height() * 58 / 100, 470)));
+    }
 #else
     picker.setMinimumSize(430, 420);
 #endif
 
-    auto *pickerLayout = new QVBoxLayout(&picker);
+    auto *pickerLayout = new QVBoxLayout(pickerContent);
+#ifdef Q_OS_ANDROID
+    pickerLayout->setContentsMargins(16, 12, 16, 12);
+    pickerLayout->setSpacing(6);
+#else
     pickerLayout->setContentsMargins(18, 16, 18, 16);
     pickerLayout->setSpacing(10);
+#endif
 
-    auto *pickerTitle = new QLabel(tr("我的周报"), &picker);
+    auto *pickerTitle = new QLabel(tr("我的周报"), pickerContent);
     pickerTitle->setObjectName(QStringLiteral("reportHistoryTitle"));
+    pickerTitle->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    pickerTitle->setMaximumHeight(36);
     pickerLayout->addWidget(pickerTitle);
 
-    auto *pickerHint = new QLabel(tr("共 %1 份报告，选择一份查看").arg(reports.size()), &picker);
+    auto *pickerHint = new QLabel(tr("共 %1 份报告，选择一份查看").arg(reports.size()), pickerContent);
     pickerHint->setObjectName(QStringLiteral("reportHistoryHint"));
+    pickerHint->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    pickerHint->setMaximumHeight(26);
     pickerLayout->addWidget(pickerHint);
 
-    auto *reportList = new QListWidget(&picker);
+    auto *reportList = new QListWidget(pickerContent);
     reportList->setObjectName(QStringLiteral("reportHistoryList"));
     for (const QString &line : lines) {
         auto *item = new QListWidgetItem(line, reportList);
-        item->setSizeHint(QSize(0, 68));
+        item->setSizeHint(QSize(0, 62));
     }
     reportList->setCurrentRow(0);
     reportList->setWordWrap(true);
     reportList->setTextElideMode(Qt::ElideNone);
     reportList->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+    reportList->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    reportList->setSelectionMode(QAbstractItemView::SingleSelection);
+    reportList->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    reportList->setFocusPolicy(Qt::NoFocus);
+#ifdef Q_OS_ANDROID
+    reportList->setAttribute(Qt::WA_AcceptTouchEvents, true);
+    reportList->viewport()->setAttribute(Qt::WA_AcceptTouchEvents, true);
+    reportList->setMaximumHeight(qMin(330, qMax(250, int(pickerAvailable.height() * 40 / 100))));
+    QScroller::grabGesture(reportList->viewport(), QScroller::TouchGesture);
+#endif
+    reportList->setProperty("confirmedReportRow", 0);
+    reportList->setProperty("reportListScrolling", false);
+    reportList->setProperty("reportTouchMoved", false);
+    const auto refreshReportSelection = [reportList](int selectedRow) {
+        QSignalBlocker blocker(reportList);
+        reportList->clearSelection();
+        for (int row = 0; row < reportList->count(); ++row) {
+            QListWidgetItem *item = reportList->item(row);
+            if (!item)
+                continue;
+
+            QFont itemFont = item->font();
+            const bool selected = row == selectedRow;
+            itemFont.setWeight(selected ? QFont::Medium : QFont::Normal);
+            item->setFont(itemFont);
+            item->setBackground(selected ? QColor(QStringLiteral("#E8F7F1"))
+                                         : QColor(QStringLiteral("#FFFDF9")));
+            item->setForeground(selected ? QColor(QStringLiteral("#277A5E"))
+                                         : QColor(QStringLiteral("#393731")));
+            item->setSelected(selected);
+        }
+    };
+    refreshReportSelection(0);
+    const auto selectReportRow = [reportList, refreshReportSelection](int row) {
+        if (row < 0 || row >= reportList->count())
+            return;
+        reportList->setProperty("confirmedReportRow", row);
+        refreshReportSelection(row);
+    };
+#ifdef Q_OS_ANDROID
+    reportList->viewport()->installEventFilter(new ReportListTouchStateFilter(reportList, selectReportRow));
+#endif
+    if (QScrollBar *bar = reportList->verticalScrollBar()) {
+        connect(bar, &QScrollBar::valueChanged, reportList, [reportList]() {
+            reportList->setProperty("reportListScrolling", true);
+            QTimer::singleShot(720, reportList, [reportList]() {
+                if (reportList)
+                    reportList->setProperty("reportListScrolling", false);
+            });
+        });
+    }
+#ifndef Q_OS_ANDROID
+    connect(reportList, &QListWidget::itemClicked, reportList, [reportList, selectReportRow, refreshReportSelection](QListWidgetItem *item) {
+        if (!item)
+            return;
+        const int row = reportList->row(item);
+        if (reportList->property("reportListScrolling").toBool()
+            || reportList->property("reportTouchMoved").toBool()) {
+            refreshReportSelection(reportList->property("confirmedReportRow").toInt());
+            return;
+        }
+        selectReportRow(row);
+    });
+#endif
     pickerLayout->addWidget(reportList, 1);
 
     auto *pickerButtons = new QHBoxLayout();
+    pickerButtons->setContentsMargins(0, 2, 0, 0);
     pickerButtons->setSpacing(10);
     pickerButtons->addStretch();
-    auto *btnClosePicker = UiFactory::ghostButton(tr("关闭"), &picker);
-    auto *btnViewReport = UiFactory::primaryButton(tr("查看周报"), &picker);
+    auto *btnClosePicker = UiFactory::ghostButton(tr("关闭"), pickerContent);
+    auto *btnViewReport = UiFactory::primaryButton(tr("查看周报"), pickerContent);
     btnClosePicker->setMinimumWidth(96);
     btnViewReport->setMinimumWidth(128);
     pickerButtons->addWidget(btnClosePicker);
@@ -9774,14 +10169,18 @@ void MainWindow::showReportHistory()
 
     connect(btnClosePicker, &QPushButton::clicked, &picker, &QDialog::reject);
     connect(btnViewReport, &QPushButton::clicked, &picker, &QDialog::accept);
+#ifndef Q_OS_ANDROID
     connect(reportList, &QListWidget::itemDoubleClicked, &picker, [&picker]() { picker.accept(); });
+#endif
 
     // Center on screen (layout is now fully built)
     {
 #ifdef Q_OS_ANDROID
-        const QRect avail = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogAvailableRect();
-        picker.resize(picker.sizeHint().expandedTo(picker.minimumSize()).boundedTo(avail.size()));
-        LifeBalanceAI::Ui::PlatformLayoutPolicy::centerWidgetOnSafeArea(&picker);
+        finalizeAndroidChildModal(&picker,
+                                  pickerPanel,
+                                  LifeBalanceAI::Ui::PlatformLayoutPolicy::DialogRole::Input,
+                                  QSize(qMin(pickerAvailable.width() * 90 / 100, 420),
+                                        qMin(pickerAvailable.height() * 60 / 100, 500)));
 #else
         const QRect avail = QGuiApplication::primaryScreen()->availableGeometry();
         picker.resize(picker.sizeHint());
@@ -9827,7 +10226,7 @@ void MainWindow::showReportHistory()
 
 
 
-    int selIdx = reportList->currentRow();
+    int selIdx = reportList->property("confirmedReportRow").toInt();
 
 
 
@@ -9913,8 +10312,18 @@ void MainWindow::showReportHistory()
     }
 
     QDialog detail(this);
+#ifdef Q_OS_ANDROID
+    QFrame *detailPanel = createAndroidChildModalPanel(&detail);
+    QWidget *detailContent = detailPanel ? static_cast<QWidget *>(detailPanel)
+                                         : static_cast<QWidget *>(&detail);
+#else
+    QWidget *detailContent = &detail;
+#endif
+#ifndef Q_OS_ANDROID
     detail.setObjectName(QStringLiteral("reportHistoryDialog"));
+#endif
     detail.setWindowTitle(tr("报告详情"));
+#ifndef Q_OS_ANDROID
     detail.setAttribute(Qt::WA_StyledBackground, true);
     detail.setStyleSheet(QStringLiteral(
         "#reportHistoryDialog{"
@@ -9923,43 +10332,71 @@ void MainWindow::showReportHistory()
         "  border-radius:16px;"
         "}"
     ));
+#endif
 #ifdef Q_OS_ANDROID
     {
         const QRect detailAvailable = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogAvailableRect();
-        detail.setMinimumSize(qMax(300, qMin(detailAvailable.width(), 460)),
-                              qMax(420, qMin(detailAvailable.height(), 560)));
+        if (detailPanel) {
+            detailPanel->setMinimumSize(qMax(300, qMin(detailAvailable.width(), 420)),
+                                        qMax(240, qMin(detailAvailable.height() * 38 / 100, 350)));
+        }
     }
 #else
     detail.setMinimumSize(460, 520);
 #endif
 
-    auto *detailLayout = new QVBoxLayout(&detail);
+    auto *detailLayout = new QVBoxLayout(detailContent);
+#ifdef Q_OS_ANDROID
+    detailLayout->setContentsMargins(16, 12, 16, 12);
+    detailLayout->setSpacing(6);
+#else
     detailLayout->setContentsMargins(18, 16, 18, 16);
     detailLayout->setSpacing(10);
+#endif
 
-    auto *detailTitle = new QLabel(tr("报告详情"), &detail);
+    auto *detailTitle = new QLabel(tr("报告详情"), detailContent);
     detailTitle->setObjectName(QStringLiteral("reportHistoryTitle"));
+    detailTitle->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    detailTitle->setMaximumHeight(36);
     detailLayout->addWidget(detailTitle);
 
-    auto *detailMeta = new QLabel(lines.value(selIdx), &detail);
+    auto *detailMeta = new QLabel(lines.value(selIdx), detailContent);
     detailMeta->setObjectName(QStringLiteral("reportHistoryHint"));
+    detailMeta->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    detailMeta->setMaximumHeight(48);
     detailLayout->addWidget(detailMeta);
 
-    auto *detailText = new QTextEdit(&detail);
+    auto *detailText = new QTextEdit(detailContent);
     detailText->setObjectName(QStringLiteral("reportDetailText"));
     detailText->setReadOnly(true);
     detailText->setTextInteractionFlags(Qt::NoTextInteraction);
     detailText->setPlainText(summaryText);
     detailText->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     detailText->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+#ifdef Q_OS_ANDROID
+    {
+        const QRect detailAvailable = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogAvailableRect();
+        const int textWidth = qMax(260, qMin(detailAvailable.width() * 72 / 100, 330));
+        const QFontMetrics metrics(detailText->font());
+        const QRect bounds = metrics.boundingRect(QRect(0, 0, textWidth, 10000),
+                                                  Qt::TextWordWrap,
+                                                  summaryText);
+        const int textHeight = qBound(132, bounds.height() + 34, detailAvailable.height() * 34 / 100);
+        detailText->setMinimumHeight(textHeight);
+        detailText->setMaximumHeight(qMin(detailAvailable.height() * 42 / 100, textHeight));
+        detailText->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    }
+    detailLayout->addWidget(detailText);
+#else
     detailLayout->addWidget(detailText, 1);
+#endif
 
     int action = 0;
     auto *detailButtons = new QHBoxLayout();
     detailButtons->setSpacing(10);
     detailButtons->addStretch();
-    auto *btnCloseDetail = UiFactory::ghostButton(tr("关闭"), &detail);
-    auto *btnExportDetail = UiFactory::primaryButton(tr("导出 PNG"), &detail);
+    auto *btnCloseDetail = UiFactory::ghostButton(tr("关闭"), detailContent);
+    auto *btnExportDetail = UiFactory::primaryButton(tr("导出 PNG"), detailContent);
     btnCloseDetail->setMinimumWidth(96);
     btnExportDetail->setMinimumWidth(128);
     detailButtons->addWidget(btnCloseDetail);
@@ -9975,9 +10412,12 @@ void MainWindow::showReportHistory()
     // Center on screen (layout is now fully built)
     {
 #ifdef Q_OS_ANDROID
-        const QRect avail = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogAvailableRect();
-        detail.resize(detail.sizeHint().expandedTo(detail.minimumSize()).boundedTo(avail.size()));
-        LifeBalanceAI::Ui::PlatformLayoutPolicy::centerWidgetOnSafeArea(&detail);
+        const QRect detailAvailable = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogAvailableRect();
+        finalizeAndroidChildModal(&detail,
+                                  detailPanel,
+                                  LifeBalanceAI::Ui::PlatformLayoutPolicy::DialogRole::Input,
+                                  QSize(qMin(detailAvailable.width() * 88 / 100, 420),
+                                        qMin(detailAvailable.height() * 52 / 100, detail.sizeHint().height())));
 #else
         const QRect avail = QGuiApplication::primaryScreen()->availableGeometry();
         detail.resize(detail.sizeHint());
@@ -10651,7 +11091,7 @@ int MainWindow::setupReportPage()
     auto *trend = new TrendLineChart(metricsCard);
     trend->setObjectName(QStringLiteral("weeklyTrendChart"));
     trend->setTitle(tr("近 7 日完成率"));
-    trend->setYAxisLabel(tr("完成率"));
+    trend->setYAxisLabel(QString());
     trend->setColors(DesignTokens::primary(), DesignTokens::primaryLightest(), DesignTokens::borderLight());
     trend->setData(rates, labels);
     trend->setMinimumWidth(0);
@@ -10867,44 +11307,9 @@ void MainWindow::onGenerateReport()
     auto showReportNotice = [this](const QString &title, const QString &message) {
         showReportStatus(message);
 
-        QDialog dialog(this);
-        dialog.setObjectName(QStringLiteral("reportHistoryDialog"));
-        dialog.setWindowTitle(title);
-        dialog.setAttribute(Qt::WA_StyledBackground, true);
-        dialog.setStyleSheet(QStringLiteral(
-            "#reportHistoryDialog{"
-            "  background:#FFFDF9;"
-            "  border:1px solid #E8DED2;"
-            "  border-radius:16px;"
-            "}"
-        ));
-#ifdef Q_OS_ANDROID
-        dialog.setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
-#endif
-
-        auto *layout = new QVBoxLayout(&dialog);
-        layout->setContentsMargins(18, 16, 18, 16);
-        layout->setSpacing(10);
-
-        auto *titleLabel = new QLabel(title, &dialog);
-        titleLabel->setObjectName(QStringLiteral("reportHistoryTitle"));
-        titleLabel->setWordWrap(true);
-        layout->addWidget(titleLabel);
-
-        auto *messageLabel = new QLabel(message, &dialog);
-        messageLabel->setObjectName(QStringLiteral("reportIntroBody"));
-        messageLabel->setWordWrap(true);
-        layout->addWidget(messageLabel);
-
-        auto *buttonRow = new QHBoxLayout();
-        buttonRow->addStretch();
+        AnimatedDialog::info(this, title, message);
+#if 0
         auto *btnOk = UiFactory::primaryButton(QString::fromUtf8("确定"), &dialog);
-        btnOk->setMinimumWidth(112);
-        buttonRow->addWidget(btnOk);
-        layout->addLayout(buttonRow);
-
-        connect(btnOk, &QPushButton::clicked, &dialog, &QDialog::accept);
-
 #ifdef Q_OS_ANDROID
         {
             const QRect available = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogAvailableRect();
@@ -10915,6 +11320,7 @@ void MainWindow::onGenerateReport()
 #endif
 
         dialog.exec();
+#endif
     };
 
     if (m_currentUserId < 0) {
@@ -11098,8 +11504,18 @@ void MainWindow::onReportReady(int userId, const LifeBalanceAI::Models::ReportDa
     }
 
     QDialog reportReadyDialog(this);
+#ifdef Q_OS_ANDROID
+    QFrame *readyPanel = createAndroidChildModalPanel(&reportReadyDialog);
+    QWidget *readyContent = readyPanel ? static_cast<QWidget *>(readyPanel)
+                                       : static_cast<QWidget *>(&reportReadyDialog);
+#else
+    QWidget *readyContent = &reportReadyDialog;
+#endif
+#ifndef Q_OS_ANDROID
     reportReadyDialog.setObjectName(QStringLiteral("reportHistoryDialog"));
+#endif
     reportReadyDialog.setWindowTitle(QString::fromUtf8("报告已生成"));
+#ifndef Q_OS_ANDROID
     reportReadyDialog.setAttribute(Qt::WA_StyledBackground, true);
     reportReadyDialog.setStyleSheet(QStringLiteral(
         "#reportHistoryDialog{"
@@ -11108,40 +11524,55 @@ void MainWindow::onReportReady(int userId, const LifeBalanceAI::Models::ReportDa
         "  border-radius:16px;"
         "}"
     ));
-#ifdef Q_OS_ANDROID
-    reportReadyDialog.setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
 #endif
-
-    auto *readyLayout = new QVBoxLayout(&reportReadyDialog);
+    auto *readyLayout = new QVBoxLayout(readyContent);
+#ifdef Q_OS_ANDROID
+    readyLayout->setContentsMargins(16, 12, 16, 12);
+    readyLayout->setSpacing(6);
+#else
     readyLayout->setContentsMargins(18, 16, 18, 16);
     readyLayout->setSpacing(10);
+#endif
 
-    auto *readyTitle = new QLabel(QString::fromUtf8("报告已生成"), &reportReadyDialog);
+    auto *readyTitle = new QLabel(QString::fromUtf8("报告已生成"), readyContent);
     readyTitle->setObjectName(QStringLiteral("reportHistoryTitle"));
+    readyTitle->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    readyTitle->setMaximumHeight(36);
     readyLayout->addWidget(readyTitle);
 
-    auto *readyHint = new QLabel(QString::fromUtf8("周报已保存到历史记录，你也可以导出为 PNG 图片。"), &reportReadyDialog);
+    auto *readyHint = new QLabel(QString::fromUtf8("周报已保存到历史记录，你也可以导出为 PNG 图片。"), readyContent);
     readyHint->setObjectName(QStringLiteral("reportHistoryHint"));
     readyHint->setWordWrap(true);
+    readyHint->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    readyHint->setMaximumHeight(44);
     readyLayout->addWidget(readyHint);
 
-    auto *readySummary = new QTextEdit(&reportReadyDialog);
-    readySummary->setObjectName(QStringLiteral("reportDetailText"));
-    readySummary->setReadOnly(true);
-    readySummary->setPlainText(summaryText);
-    readySummary->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    auto *readySummaryScroll = new QScrollArea(readyContent);
+    readySummaryScroll->setObjectName(QStringLiteral("reportReadySummaryScroll"));
+    readySummaryScroll->setWidgetResizable(true);
+    readySummaryScroll->setFrameShape(QFrame::NoFrame);
+    readySummaryScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    readySummaryScroll->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    auto *readySummaryBody = new QLabel(summaryText, readySummaryScroll);
+    readySummaryBody->setObjectName(QStringLiteral("reportReadySummaryBody"));
+    readySummaryBody->setWordWrap(true);
+    readySummaryBody->setTextInteractionFlags(Qt::NoTextInteraction);
+    readySummaryBody->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    readySummaryScroll->setWidget(readySummaryBody);
 #ifdef Q_OS_ANDROID
-    readySummary->setMinimumHeight(150);
-    readySummary->setMaximumHeight(250);
+    readySummaryScroll->setMinimumHeight(124);
+    readySummaryScroll->setMaximumHeight(qMin(210, LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogAvailableRect().height() * 32 / 100));
+    readySummaryScroll->viewport()->setAttribute(Qt::WA_AcceptTouchEvents, true);
+    QScroller::grabGesture(readySummaryScroll->viewport(), QScroller::TouchGesture);
 #else
-    readySummary->setMinimumHeight(190);
+    readySummaryScroll->setMinimumHeight(190);
 #endif
-    readyLayout->addWidget(readySummary, 1);
+    readyLayout->addWidget(readySummaryScroll, 1);
 
     auto *readyButtons = new QHBoxLayout();
     readyButtons->setSpacing(10);
-    auto *btnExportReady = UiFactory::primaryButton(QString::fromUtf8("导出 PNG"), &reportReadyDialog);
-    auto *btnConfirmReady = UiFactory::secondaryButton(QString::fromUtf8("确定"), &reportReadyDialog);
+    auto *btnExportReady = UiFactory::primaryButton(QString::fromUtf8("导出 PNG"), readyContent);
+    auto *btnConfirmReady = UiFactory::secondaryButton(QString::fromUtf8("确定"), readyContent);
     readyButtons->addWidget(btnExportReady);
     readyButtons->addWidget(btnConfirmReady);
     readyLayout->addLayout(readyButtons);
@@ -11156,9 +11587,11 @@ void MainWindow::onReportReady(int userId, const LifeBalanceAI::Models::ReportDa
 #ifdef Q_OS_ANDROID
     {
         const QRect available = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogAvailableRect();
-        reportReadyDialog.resize(qMin(available.width(), qMax(320, int(available.width() * 0.88))),
-                                 qMin(available.height(), 360));
-        LifeBalanceAI::Ui::PlatformLayoutPolicy::centerWidgetOnSafeArea(&reportReadyDialog);
+        finalizeAndroidChildModal(&reportReadyDialog,
+                                  readyPanel,
+                                  LifeBalanceAI::Ui::PlatformLayoutPolicy::DialogRole::Input,
+                                  QSize(qMin(available.width() * 88 / 100, 420),
+                                        qMin(available.height() * 58 / 100, 400)));
     }
 #endif
 

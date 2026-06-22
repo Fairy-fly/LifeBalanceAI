@@ -100,9 +100,14 @@ void TrendLineChart::paintEvent(QPaintEvent *event)
 
     // Calculate chart area (leave space for title and labels)
     int topMargin = m_title.isEmpty() ? 10 : 40;
-    int bottomMargin = 50;
-    int leftMargin = m_yAxisLabel.isEmpty() ? 40 : 60;
-    int rightMargin = 20;
+    int bottomMargin = 44;
+#ifdef Q_OS_ANDROID
+    int leftMargin = 30;
+    int rightMargin = 12;
+#else
+    int leftMargin = 36;
+    int rightMargin = 18;
+#endif
 
     QRectF chartArea(leftMargin, topMargin, width() - leftMargin - rightMargin, height() - topMargin - bottomMargin);
 
@@ -145,7 +150,9 @@ void TrendLineChart::calculatePoints(const QRectF &chartArea)
 
 void TrendLineChart::drawGrid(QPainter &painter, const QRectF &chartArea)
 {
-    painter.setPen(QPen(QColor(m_gridColor), 1));
+    QColor grid(m_gridColor);
+    grid.setAlpha(150);
+    painter.setPen(QPen(grid, 1));
 
     // Horizontal grid lines
     int gridLines = 4;
@@ -157,12 +164,15 @@ void TrendLineChart::drawGrid(QPainter &painter, const QRectF &chartArea)
 
 void TrendLineChart::drawAxes(QPainter &painter, const QRectF &chartArea)
 {
-    painter.setPen(QPen(QColor("#D9D9D9"), 1));
+    painter.setPen(QPen(QColor("#E8DED2"), 1));
 
     // X axis
     painter.drawLine(chartArea.left(), chartArea.bottom(), chartArea.right(), chartArea.bottom());
 
     // Y axis
+    QColor axisColor("#E8DED2");
+    axisColor.setAlpha(150);
+    painter.setPen(QPen(axisColor, 1));
     painter.drawLine(chartArea.left(), chartArea.top(), chartArea.left(), chartArea.bottom());
 }
 
@@ -172,7 +182,7 @@ void TrendLineChart::drawLine(QPainter &painter, const QRectF &chartArea)
 
     if (m_points.size() < 2) return;
 
-    QPen pen(QColor(m_lineColor), 2.5);
+    QPen pen(QColor(m_lineColor), 2.2);
     pen.setCapStyle(Qt::RoundCap);
     pen.setJoinStyle(Qt::RoundJoin);
     painter.setPen(pen);
@@ -186,10 +196,10 @@ void TrendLineChart::drawLine(QPainter &painter, const QRectF &chartArea)
     painter.drawPath(path);
 
     // Draw data point circles
-    painter.setPen(Qt::NoPen);
+    painter.setPen(QPen(QColor("#FFFDF9"), 1.5));
     painter.setBrush(QColor(m_lineColor));
     for (const Point &point : m_points) {
-        painter.drawEllipse(point.pos, 4, 4);
+        painter.drawEllipse(point.pos, 3.6, 3.6);
     }
 }
 
@@ -217,25 +227,16 @@ void TrendLineChart::drawLabels(QPainter &painter, const QRectF &chartArea)
     calculatePoints(chartArea);
 
     QFont font = this->font();
-    font.setPointSize(10);
+    font.setPointSize(9);
+    font.setWeight(QFont::Normal);
     painter.setFont(font);
-    painter.setPen(QColor("#666666"));
+    painter.setPen(QColor("#8A8178"));
 
     // X-axis labels
     for (int i = 0; i < m_points.size(); ++i) {
         QString label = (i < m_labels.size()) ? m_labels[i] : QString::number(i + 1);
-        QRectF textRect(m_points[i].pos.x() - 20, chartArea.bottom() + 5, 40, 30);
+        QRectF textRect(m_points[i].pos.x() - 20, chartArea.bottom() + 5, 40, 24);
         painter.drawText(textRect, Qt::AlignCenter, label);
-    }
-
-    // Y-axis label
-    if (!m_yAxisLabel.isEmpty()) {
-        painter.save();
-        painter.translate(10, chartArea.center().y());
-        painter.rotate(-90);
-        QRectF textRect(-chartArea.height() / 2, -20, chartArea.height(), 40);
-        painter.drawText(textRect, Qt::AlignCenter, m_yAxisLabel);
-        painter.restore();
     }
 }
 
@@ -244,8 +245,8 @@ void TrendLineChart::drawTitle(QPainter &painter)
     if (m_title.isEmpty()) return;
 
     QFont font = this->font();
-    font.setPointSize(12);
-    font.setBold(true);
+    font.setPointSize(11);
+    font.setWeight(QFont::Medium);
     painter.setFont(font);
     painter.setPen(QColor("#1A1A1A"));
 

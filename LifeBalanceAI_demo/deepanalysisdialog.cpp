@@ -5,10 +5,12 @@
 #include <QFrame>
 #include <QGuiApplication>
 #include <QLabel>
+#include <QPainter>
 #include <QPushButton>
 #include <QScreen>
 #include <QScrollArea>
 #include <QSpacerItem>
+#include <QTimer>
 #include <QVBoxLayout>
 #ifdef Q_OS_ANDROID
 #include <QScroller>
@@ -32,6 +34,18 @@ void addMajorTitle(QVBoxLayout *layout, QWidget *parent, const QString &title)
     layout->addWidget(label);
 }
 
+QFrame *createModalShadow(QWidget *parent, const QString &name, int alpha)
+{
+    auto *shadow = new QFrame(parent);
+    shadow->setObjectName(name);
+    shadow->setAttribute(Qt::WA_StyledBackground, true);
+    shadow->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+    shadow->setStyleSheet(QStringLiteral(
+        "QFrame#%1{background:rgba(30,36,32,%2);border-radius:18px;border:none;}").arg(name).arg(alpha));
+    shadow->hide();
+    return shadow;
+}
+
 } // namespace
 
 DeepAnalysisDialog::DeepAnalysisDialog(QWidget *parent)
@@ -44,32 +58,64 @@ void DeepAnalysisDialog::setupUi()
 {
     setWindowTitle(QString::fromUtf8("AI 健康洞察报告"));
     setObjectName(QStringLiteral("analysisDialog"));
+#ifdef Q_OS_ANDROID
+    setWindowFlags(Qt::Widget | Qt::FramelessWindowHint);
+    setWindowModality(Qt::ApplicationModal);
+    setAttribute(Qt::WA_TranslucentBackground, true);
+    setAttribute(Qt::WA_NoSystemBackground, true);
+    setAutoFillBackground(false);
+#endif
     setAttribute(Qt::WA_StyledBackground, true);
     setStyleSheet(QStringLiteral(
-        "#analysisDialog{"
+        "#analysisDialog{background:transparent;}"
+        "QFrame#analysisDialogPanel{"
         "  background:%1;"
         "  border:1px solid %2;"
         "  border-radius:%3px;"
         "}"
-    ).arg(DesignTokens::bgCard(),
+).arg(DesignTokens::bgCard(),
           DesignTokens::border(),
-          QString::number(DesignTokens::RadiusLg)));
+          QString::number(DesignTokens::RadiusXl)));
 
 #ifdef Q_OS_ANDROID
     const QRect available = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogAvailableRect();
-    const QSize preferred(qMin(available.width() * 88 / 100, 390),
-                          qMin(available.height() * 78 / 100, 660));
+    const QSize preferred(qMin(available.width() * 90 / 100, 420),
+                          qMin(available.height() * 72 / 100, 640));
     const QSize target = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogSizeForRole(
         LifeBalanceAI::Ui::PlatformLayoutPolicy::DialogRole::LargeContent,
         preferred);
-    resize(target);
-    setMaximumSize(qMin(available.width() - 24, 430), qMin(available.height() - 24, 720));
+    QWidget *host = parentWidget() ? parentWidget()->window() : nullptr;
+    const QRect hostRect = host ? host->rect()
+                                : QRect(QPoint(0, 0),
+                                        QGuiApplication::primaryScreen()
+                                            ? QGuiApplication::primaryScreen()->geometry().size()
+                                            : QSize(390, 844));
+    setGeometry(hostRect);
 #else
     resize(520, 680);
     setMaximumSize(620, 760);
 #endif
 
-    auto *mainLayout = new QVBoxLayout(this);
+    auto *outerLayout = new QVBoxLayout(this);
+#ifdef Q_OS_ANDROID
+    outerLayout->setContentsMargins(18, 0, 18, 0);
+    outerLayout->setSpacing(0);
+    m_shadowFar = createModalShadow(this, QStringLiteral("analysisShadowFar"), 9);
+    m_shadowNear = createModalShadow(this, QStringLiteral("analysisShadowNear"), 18);
+    m_panel = new QFrame(this);
+    m_panel->setObjectName(QStringLiteral("analysisDialogPanel"));
+    m_panel->setAttribute(Qt::WA_StyledBackground, true);
+    m_panel->setFixedSize(target.boundedTo(available.size()));
+    outerLayout->addWidget(m_panel, 0, Qt::AlignCenter);
+#else
+    m_panel = new QFrame(this);
+    m_panel->setObjectName(QStringLiteral("analysisDialogPanel"));
+    m_panel->setAttribute(Qt::WA_StyledBackground, true);
+    outerLayout->setContentsMargins(0, 0, 0, 0);
+    outerLayout->addWidget(m_panel);
+#endif
+
+    auto *mainLayout = new QVBoxLayout(m_panel);
 #ifdef Q_OS_ANDROID
     mainLayout->setContentsMargins(16, 14, 16, 14);
     mainLayout->setSpacing(10);
@@ -142,12 +188,42 @@ void DeepAnalysisDialog::setupUi()
     connect(btnClose, &QPushButton::clicked, this, &QDialog::accept);
 
 #ifdef Q_OS_ANDROID
-    LifeBalanceAI::Ui::PlatformLayoutPolicy::centerWidgetOnSafeArea(this);
+    syncShadowLayers();
+    QTimer::singleShot(0, this, [this]() { syncShadowLayers(); });
 #else
     if (QScreen *screen = QGuiApplication::primaryScreen()) {
         const QRect avail = screen->availableGeometry();
         move(avail.center() - rect().center());
     }
+#endif
+}
+
+void DeepAnalysisDialog::syncShadowLayers()
+{
+#ifdef Q_OS_ANDROID
+    if (!m_panel || !m_shadowNear || !m_shadowFar || m_panel->geometry().isEmpty())
+        return;
+
+    const QRect panelRect = m_panel->geometry();
+    m_shadowFar->setGeometry(panelRect.adjusted(-1, 0, 5, 4).translated(4, 10));
+    m_shadowNear->setGeometry(panelRect.adjusted(0, 0, 3, 2).translated(2, 5));
+    m_shadowFar->show();
+    m_shadowNear->show();
+    m_shadowFar->lower();
+    m_shadowNear->raise();
+    m_shadowNear->stackUnder(m_panel);
+    m_panel->raise();
+#endif
+}
+
+void DeepAnalysisDialog::paintEvent(QPaintEvent *event)
+{
+#ifdef Q_OS_ANDROID
+    Q_UNUSED(event)
+    QPainter painter(this);
+    painter.fillRect(rect(), QColor(24, 28, 25, 118));
+#else
+    QDialog::paintEvent(event);
 #endif
 }
 

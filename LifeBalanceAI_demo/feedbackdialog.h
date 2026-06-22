@@ -5,7 +5,12 @@
 #include <QTextEdit>
 #include <QPushButton>
 #include <QLabel>
+#include <QPaintEvent>
 #include <QString>
+
+class QEvent;
+class QFrame;
+class QVBoxLayout;
 
 class FeedbackDialog : public QDialog
 {
@@ -23,12 +28,21 @@ public:
     QString feedbackText() const;
     QString imagePath() const;
 
+protected:
+    void paintEvent(QPaintEvent *event) override;
+    bool eventFilter(QObject *watched, QEvent *event) override;
+
 private slots:
     void onSelectImage();
 
 private:
     void setupUi(const QString &slotTitle, const QString &initialText = QString());
+    void setKeyboardLifted(bool lifted);
 
+    QVBoxLayout *m_outerLayout = nullptr;
+    QFrame      *m_panel = nullptr;
+    QFrame      *m_shadowNear = nullptr;
+    QFrame      *m_shadowFar = nullptr;
     QTextEdit   *m_textEdit;
     QPushButton *m_btnConfirm;
     QPushButton *m_btnCancel;

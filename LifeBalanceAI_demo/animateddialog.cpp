@@ -6,6 +6,7 @@
 #include <QEventLoop>
 #include <QGuiApplication>
 #include <QFrame>
+#include <QGraphicsDropShadowEffect>
 #include <QHBoxLayout>
 #include <QParallelAnimationGroup>
 #include <QPainter>
@@ -28,10 +29,102 @@ void repolish(QWidget *widget)
     widget->update();
 }
 
+void applyTransparentDialogChrome(QDialog *dialog)
+{
+    if (!dialog)
+        return;
+
+#ifdef Q_OS_ANDROID
+    if (dialog->parentWidget()) {
+        dialog->setWindowFlags(Qt::FramelessWindowHint | Qt::Widget);
+        dialog->setWindowModality(Qt::ApplicationModal);
+    } else {
+        dialog->setWindowFlags(Qt::FramelessWindowHint | Qt::Dialog);
+    }
+#else
+    dialog->setWindowFlags(Qt::FramelessWindowHint | Qt::Dialog);
+#endif
+    dialog->setAttribute(Qt::WA_TranslucentBackground, true);
+    dialog->setAttribute(Qt::WA_NoSystemBackground, true);
+    dialog->setAutoFillBackground(false);
+    dialog->setStyleSheet(QStringLiteral("QDialog{background:transparent;}"));
+}
+
+void applyPanelShadow(QFrame *panel)
+{
+    if (!panel)
+        return;
+
+#ifndef Q_OS_ANDROID
+    auto *shadow = new QGraphicsDropShadowEffect(panel);
+    shadow->setBlurRadius(30);
+    shadow->setOffset(0, 9);
+    shadow->setColor(QColor(35, 45, 40, 58));
+    panel->setGraphicsEffect(shadow);
+#endif
+}
+
+QFrame *createFakeShadowLayer(QWidget *parent, const QString &objectName, int alpha)
+{
+    auto *layer = new QFrame(parent);
+    layer->setObjectName(objectName);
+    layer->setAttribute(Qt::WA_StyledBackground, true);
+    layer->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+    layer->setAutoFillBackground(false);
+    layer->setStyleSheet(QStringLiteral(
+        "QFrame#%1{background:rgba(30,36,32,%2);border-radius:18px;border:none;}").arg(objectName).arg(alpha));
+    layer->hide();
+    return layer;
+}
+
+void syncFakeShadowLayers(QWidget *root)
+{
+    if (!root)
+        return;
+
+    auto *panel = root->findChild<QFrame *>(QStringLiteral("animatedDialogPanel"), Qt::FindDirectChildrenOnly);
+    auto *nearLayer = root->findChild<QFrame *>(QStringLiteral("modalShadowNear"), Qt::FindDirectChildrenOnly);
+    auto *farLayer = root->findChild<QFrame *>(QStringLiteral("modalShadowFar"), Qt::FindDirectChildrenOnly);
+    if (!panel || !nearLayer || !farLayer || panel->geometry().isEmpty())
+        return;
+
+    const QRect panelRect = panel->geometry();
+    farLayer->setGeometry(panelRect.adjusted(-1, 0, 5, 4).translated(4, 10));
+    nearLayer->setGeometry(panelRect.adjusted(0, 0, 3, 2).translated(2, 5));
+    farLayer->show();
+    nearLayer->show();
+    farLayer->lower();
+    nearLayer->raise();
+    nearLayer->stackUnder(panel);
+    panel->raise();
+}
+
 void centerOnParent(QWidget *widget)
 {
 #ifdef Q_OS_ANDROID
     if (widget) {
+        if (auto *panel = widget->findChild<QFrame *>(QStringLiteral("animatedDialogPanel"))) {
+            const QRect available = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogAvailableRect();
+            panel->adjustSize();
+            const QSize target = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogSizeForRole(
+                LifeBalanceAI::Ui::PlatformLayoutPolicy::DialogRole::Alert,
+                panel->sizeHint().expandedTo(panel->minimumSizeHint()));
+            panel->setFixedSize(target);
+            if (auto *layout = widget->layout())
+                layout->setAlignment(panel, Qt::AlignCenter);
+            if (widget->parentWidget()) {
+                QWidget *host = widget->parentWidget()->window();
+                widget->setGeometry(host ? host->rect() : QRect(QPoint(0, 0), available.size()));
+            } else {
+                widget->resize(target);
+                widget->move(available.x() + (available.width() - widget->width()) / 2,
+                             available.y() + (available.height() - widget->height()) / 2);
+            }
+            syncFakeShadowLayers(widget);
+            QTimer::singleShot(0, widget, [widget]() { syncFakeShadowLayers(widget); });
+            return;
+        }
+
         widget->adjustSize();
         const QSize preliminary = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogSizeForRole(
             LifeBalanceAI::Ui::PlatformLayoutPolicy::DialogRole::Alert,
@@ -43,6 +136,11 @@ void centerOnParent(QWidget *widget)
             widget->sizeHint().expandedTo(widget->minimumSizeHint())));
     }
     LifeBalanceAI::Ui::PlatformLayoutPolicy::centerWidgetOnSafeArea(widget);
+    if (widget) {
+        const QRect available = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogAvailableRect();
+        const int lift = qMin(18, qMax(0, available.height() / 36));
+        widget->move(widget->x(), qMax(available.y(), widget->y() - lift));
+    }
     return;
 #else
     QWidget *parent = widget->parentWidget();
@@ -62,6 +160,30 @@ void placeInputDialogForKeyboard(QWidget *widget)
         return;
 
     QRect available = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogAvailableRect();
+        if (auto *panel = widget->findChild<QFrame *>(QStringLiteral("animatedDialogPanel"))) {
+            panel->adjustSize();
+            const QSize targetSize = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogSizeForRole(
+                LifeBalanceAI::Ui::PlatformLayoutPolicy::DialogRole::Input,
+            panel->sizeHint().expandedTo(panel->minimumSizeHint()));
+        panel->setFixedSize(targetSize.boundedTo(available.size()));
+        if (auto *layout = widget->layout()) {
+            layout->setContentsMargins(widget->parentWidget() ? 18 : 0, 0, widget->parentWidget() ? 18 : 0, 0);
+            layout->setAlignment(panel, Qt::AlignCenter);
+        }
+        if (widget->parentWidget()) {
+            QWidget *host = widget->parentWidget()->window();
+            widget->setGeometry(host ? host->rect() : QRect(QPoint(0, 0), available.size()));
+        } else {
+            widget->resize(panel->size());
+            const int lift = qMin(18, qMax(0, available.height() / 36));
+            widget->move(available.x() + (available.width() - widget->width()) / 2,
+                         qMax(available.y(), available.y() + (available.height() - widget->height()) / 2 - lift));
+        }
+        syncFakeShadowLayers(widget);
+        QTimer::singleShot(0, widget, [widget]() { syncFakeShadowLayers(widget); });
+        return;
+    }
+
     widget->adjustSize();
     const QSize targetSize = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogSizeForRole(
         LifeBalanceAI::Ui::PlatformLayoutPolicy::DialogRole::Input,
@@ -86,10 +208,7 @@ AnimatedDialog::AnimatedDialog(QWidget *parent, AnimStyle style)
 
 void AnimatedDialog::setupUi()
 {
-#ifndef Q_OS_ANDROID
-    setWindowFlags(Qt::FramelessWindowHint | Qt::Dialog);
-    setAttribute(Qt::WA_TranslucentBackground);
-#endif
+    applyTransparentDialogChrome(this);
     setModal(true);
 #ifdef Q_OS_ANDROID
     setMinimumWidth(0);
@@ -101,17 +220,40 @@ void AnimatedDialog::setupUi()
     outer->setContentsMargins(0, 0, 0, 0);
     outer->setSpacing(0);
 
-    m_accentBar = new QWidget(this);
-    m_accentBar->setObjectName(QStringLiteral("dialogAccentBar"));
-    m_accentBar->setFixedWidth(5);
-    outer->addWidget(m_accentBar);
+    m_shadowFar = createFakeShadowLayer(this, QStringLiteral("modalShadowFar"), 9);
+    m_shadowNear = createFakeShadowLayer(this, QStringLiteral("modalShadowNear"), 18);
 
-    auto *content = new QWidget(this);
+    m_panel = new QFrame(this);
+    m_panel->setObjectName(QStringLiteral("animatedDialogPanel"));
+    m_panel->setAttribute(Qt::WA_StyledBackground, true);
+    m_panel->setStyleSheet(QStringLiteral(
+        "QFrame#animatedDialogPanel{"
+        "background:#FFFDF9;"
+        "border:1px solid #E5D9CC;"
+        "border-radius:16px;"
+        "}"));
+    applyPanelShadow(m_panel);
+
+    auto *panelRow = new QHBoxLayout(m_panel);
+    panelRow->setContentsMargins(0, 0, 0, 0);
+    panelRow->setSpacing(0);
+
+    m_accentBar = new QWidget(m_panel);
+    m_accentBar->setObjectName(QStringLiteral("dialogAccentBar"));
+    m_accentBar->setFixedWidth(0);
+    panelRow->addWidget(m_accentBar);
+
+    auto *content = new QWidget(m_panel);
+    content->setAttribute(Qt::WA_TranslucentBackground, true);
     auto *layout = new QVBoxLayout(content);
+#ifdef Q_OS_ANDROID
+    layout->setContentsMargins(22, 20, 22, 20);
+#else
     layout->setContentsMargins(DesignTokens::DialogPaddingMobile,
                                DesignTokens::DialogPaddingMobile - 2,
                                DesignTokens::DialogPaddingMobile,
                                DesignTokens::DialogPaddingMobile - 4);
+#endif
     layout->setSpacing(DesignTokens::SpaceSm);
 
     m_ttl = new QLabel(content);
@@ -144,7 +286,7 @@ void AnimatedDialog::setupUi()
 
     auto *buttons = new QHBoxLayout();
     buttons->setObjectName(QStringLiteral("buttonLayout"));
-    buttons->setContentsMargins(0, DesignTokens::SpaceSm, 0, 0);
+    buttons->setContentsMargins(0, 6, 0, 0);
     buttons->setSpacing(DesignTokens::SpaceSm);
     buttons->addStretch();
 
@@ -155,17 +297,10 @@ void AnimatedDialog::setupUi()
     m_ok->setCursor(Qt::PointingHandCursor);
     buttons->addWidget(m_ok);
     layout->addLayout(buttons);
-    outer->addWidget(content);
+    panelRow->addWidget(content);
+    outer->addWidget(m_panel);
 
     connect(m_ok, &QPushButton::clicked, this, &QDialog::accept);
-
-#ifndef Q_OS_ANDROID
-    auto *shadow = new QGraphicsDropShadowEffect(this);
-    shadow->setBlurRadius(30);
-    shadow->setOffset(0, 10);
-    shadow->setColor(QColor(26, 26, 26, 36));
-    setGraphicsEffect(shadow);
-#endif
 }
 
 void AnimatedDialog::refreshMessageScrollLimit()
@@ -175,7 +310,7 @@ void AnimatedDialog::refreshMessageScrollLimit()
 
 #ifdef Q_OS_ANDROID
     const QRect available = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogAvailableRect();
-    const int maxMessageHeight = qBound(92, available.height() * 46 / 100, 320);
+    const int maxMessageHeight = qBound(84, available.height() * 38 / 100, 260);
 #else
     const int maxMessageHeight = 420;
 #endif
@@ -257,10 +392,16 @@ void AnimatedDialog::showEvent(QShowEvent *event)
 
 void AnimatedDialog::paintEvent(QPaintEvent *)
 {
+    if (m_panel) {
+        QPainter painter(this);
+        painter.fillRect(rect(), parentWidget() ? QColor(24, 28, 25, 118) : Qt::transparent);
+        return;
+    }
+
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
     QPainterPath path;
-    path.addRoundedRect(rect().adjusted(1, 1, -1, -1), DesignTokens::RadiusLg, DesignTokens::RadiusLg);
+    path.addRoundedRect(rect().adjusted(1, 1, -1, -1), DesignTokens::RadiusXl, DesignTokens::RadiusXl);
     painter.fillPath(path, QColor(DesignTokens::bgCard()));
     painter.setPen(QPen(QColor(DesignTokens::border()), 1));
     painter.drawPath(path);
@@ -309,17 +450,31 @@ bool AnimatedDialog::confirm(QWidget *parent, const QString &title, const QStrin
         overlay->setAttribute(Qt::WA_StyledBackground, true);
         overlay->setGeometry(host->rect());
         overlay->setStyleSheet(QStringLiteral(
-            "#confirmDialogOverlay{background:rgba(28,24,20,92);}"));
+        "#confirmDialogOverlay{background:rgba(24,28,25,118);}"));
+
+        auto *shadowFar = new QFrame(overlay);
+        shadowFar->setObjectName(QStringLiteral("confirmShadowFar"));
+        shadowFar->setAttribute(Qt::WA_StyledBackground, true);
+        shadowFar->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+        shadowFar->setStyleSheet(QStringLiteral(
+            "QFrame#confirmShadowFar{background:rgba(30,36,32,9);border-radius:18px;border:none;}"));
+
+        auto *shadowNear = new QFrame(overlay);
+        shadowNear->setObjectName(QStringLiteral("confirmShadowNear"));
+        shadowNear->setAttribute(Qt::WA_StyledBackground, true);
+        shadowNear->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+        shadowNear->setStyleSheet(QStringLiteral(
+            "QFrame#confirmShadowNear{background:rgba(30,36,32,18);border-radius:18px;border:none;}"));
 
         auto *panel = new QFrame(overlay);
         panel->setObjectName(QStringLiteral("confirmDialogPanel"));
         panel->setAttribute(Qt::WA_StyledBackground, true);
         panel->setStyleSheet(QStringLiteral(
             "QFrame#confirmDialogPanel{"
-            "background:#FFFDF9;border:1px solid #E8DED2;border-radius:14px;"
+            "background:#FFFDF9;border:1px solid #E5D9CC;border-radius:16px;"
             "}"
             "QLabel#confirmDialogTitle{"
-            "color:#B86A3F;font-size:17px;font-weight:600;"
+            "color:#B86A3F;font-size:17px;font-weight:700;"
             "font-family:\"MiSans Medium\",\"MiSans\",\"Noto Sans SC\",\"Microsoft YaHei UI\",sans-serif;"
             "background:transparent;"
             "}"
@@ -342,8 +497,8 @@ bool AnimatedDialog::confirm(QWidget *parent, const QString &title, const QStrin
             "QPushButton#confirmOkButton:pressed{background:#F8E2DE;border-color:#D48A82;}"));
 
         auto *layout = new QVBoxLayout(panel);
-        layout->setContentsMargins(24, 22, 24, 20);
-        layout->setSpacing(14);
+        layout->setContentsMargins(22, 18, 22, 18);
+        layout->setSpacing(12);
 
         auto *titleLabel = new QLabel(title, panel);
         titleLabel->setObjectName(QStringLiteral("confirmDialogTitle"));
@@ -357,7 +512,7 @@ bool AnimatedDialog::confirm(QWidget *parent, const QString &title, const QStrin
         layout->addWidget(messageLabel);
 
         auto *buttons = new QHBoxLayout();
-        buttons->setContentsMargins(0, 8, 0, 0);
+        buttons->setContentsMargins(0, 6, 0, 0);
         buttons->setSpacing(10);
         buttons->addStretch();
 
@@ -376,18 +531,15 @@ bool AnimatedDialog::confirm(QWidget *parent, const QString &title, const QStrin
         buttons->addWidget(ok);
         layout->addLayout(buttons);
 
-        auto *shadow = new QGraphicsDropShadowEffect(panel);
-        shadow->setBlurRadius(24);
-        shadow->setOffset(0, 8);
-        shadow->setColor(QColor(26, 26, 26, 42));
-        panel->setGraphicsEffect(shadow);
-
         const QRect available = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogAvailableRect(22);
         const int targetWidth = qBound(300, available.width() * 86 / 100, available.width());
         panel->setFixedWidth(targetWidth);
         panel->adjustSize();
+        const int lift = qMin(18, qMax(0, available.height() / 36));
         panel->move(available.x() + (available.width() - panel->width()) / 2,
-                    available.y() + (available.height() - panel->height()) / 2);
+                    qMax(available.y(), available.y() + (available.height() - panel->height()) / 2 - lift));
+        shadowFar->setGeometry(panel->geometry().adjusted(-1, 0, 5, 4).translated(4, 10));
+        shadowNear->setGeometry(panel->geometry().adjusted(0, 0, 3, 2).translated(2, 5));
 
         bool result = false;
         QEventLoop loop;
@@ -401,6 +553,11 @@ bool AnimatedDialog::confirm(QWidget *parent, const QString &title, const QStrin
         });
 
         overlay->show();
+        shadowFar->show();
+        shadowNear->show();
+        shadowFar->lower();
+        shadowNear->raise();
+        shadowNear->stackUnder(panel);
         panel->raise();
         loop.exec();
         overlay->deleteLater();
@@ -484,10 +641,7 @@ AnimatedInputDialog::AnimatedInputDialog(QWidget *parent)
 
 void AnimatedInputDialog::setupUi()
 {
-#ifndef Q_OS_ANDROID
-    setWindowFlags(Qt::FramelessWindowHint | Qt::Dialog);
-    setAttribute(Qt::WA_TranslucentBackground);
-#endif
+    applyTransparentDialogChrome(this);
     setModal(true);
 #ifdef Q_OS_ANDROID
     setMinimumWidth(0);
@@ -495,11 +649,34 @@ void AnimatedInputDialog::setupUi()
     setMinimumWidth(350);
 #endif
 
-    auto *layout = new QVBoxLayout(this);
+    auto *outer = new QVBoxLayout(this);
+    outer->setContentsMargins(0, 0, 0, 0);
+    outer->setSpacing(0);
+
+    m_shadowFar = createFakeShadowLayer(this, QStringLiteral("modalShadowFar"), 9);
+    m_shadowNear = createFakeShadowLayer(this, QStringLiteral("modalShadowNear"), 18);
+
+    m_panel = new QFrame(this);
+    m_panel->setObjectName(QStringLiteral("animatedDialogPanel"));
+    m_panel->setAttribute(Qt::WA_StyledBackground, true);
+    m_panel->setStyleSheet(QStringLiteral(
+        "QFrame#animatedDialogPanel{"
+        "background:#FFFDF9;"
+        "border:1px solid #E5D9CC;"
+        "border-radius:16px;"
+        "}"));
+    applyPanelShadow(m_panel);
+    outer->addWidget(m_panel);
+
+    auto *layout = new QVBoxLayout(m_panel);
+#ifdef Q_OS_ANDROID
+    layout->setContentsMargins(22, 20, 22, 20);
+#else
     layout->setContentsMargins(DesignTokens::DialogPaddingMobile,
                                DesignTokens::DialogPaddingMobile,
                                DesignTokens::DialogPaddingMobile,
                                DesignTokens::DialogPaddingMobile - 2);
+#endif
     layout->setSpacing(DesignTokens::SpaceSm);
 
     m_ttl = new QLabel(this);
@@ -516,7 +693,7 @@ void AnimatedInputDialog::setupUi()
     layout->addWidget(m_inp);
 
     auto *buttons = new QHBoxLayout();
-    buttons->setContentsMargins(0, DesignTokens::SpaceSm, 0, 0);
+    buttons->setContentsMargins(0, 6, 0, 0);
     buttons->setSpacing(DesignTokens::SpaceSm);
     buttons->addStretch();
 
@@ -540,18 +717,43 @@ void AnimatedInputDialog::setupUi()
         accept();
     });
     connect(m_ccl, &QPushButton::clicked, this, &QDialog::reject);
-
-#ifndef Q_OS_ANDROID
-    auto *shadow = new QGraphicsDropShadowEffect(this);
-    shadow->setBlurRadius(30);
-    shadow->setOffset(0, 10);
-    shadow->setColor(QColor(26, 26, 26, 36));
-    setGraphicsEffect(shadow);
-#endif
 }
 
-void AnimatedInputDialog::setTitle(const QString &title) { m_ttl->setText(title); }
-void AnimatedInputDialog::setPrompt(const QString &prompt) { m_pmt->setText(prompt); }
+void AnimatedInputDialog::setTitle(const QString &title)
+{
+    const bool looksLikeAdjust =
+        title.contains(QString::fromUtf8("调整规划"))
+        || title.contains(QStringLiteral("璋冩暣瑙勫垝"));
+
+    if (looksLikeAdjust) {
+        m_isAdjustDialog = true;
+        QString slotTitle = title.section(QStringLiteral(" - "), 1).trimmed();
+        if (slotTitle.isEmpty())
+            slotTitle = title.section(QChar('-'), 1).trimmed();
+        m_ttl->setText(slotTitle.isEmpty()
+                           ? QString::fromUtf8("调整规划")
+                           : QString::fromUtf8("调整%1").arg(slotTitle));
+        if (m_inp) {
+            m_inp->setMinimumHeight(86);
+            m_inp->setMaximumHeight(96);
+        }
+        return;
+    }
+
+    m_ttl->setText(title);
+}
+
+void AnimatedInputDialog::setPrompt(const QString &prompt)
+{
+    if (m_isAdjustDialog) {
+        m_pmt->setText(QString::fromUtf8("告诉我你想怎么换"));
+        if (m_inp)
+            m_inp->setPlaceholderText(QString::fromUtf8("例如：换个更简单的，或不想吃这个"));
+        return;
+    }
+
+    m_pmt->setText(prompt);
+}
 QString AnimatedInputDialog::textValue() const { return m_result; }
 
 void AnimatedInputDialog::showAnimated()
@@ -589,10 +791,16 @@ void AnimatedInputDialog::showAnimated()
 
 void AnimatedInputDialog::paintEvent(QPaintEvent *)
 {
+    if (m_panel) {
+        QPainter painter(this);
+        painter.fillRect(rect(), parentWidget() ? QColor(24, 28, 25, 118) : Qt::transparent);
+        return;
+    }
+
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
     QPainterPath path;
-    path.addRoundedRect(rect().adjusted(1, 1, -1, -1), DesignTokens::RadiusLg, DesignTokens::RadiusLg);
+    path.addRoundedRect(rect().adjusted(1, 1, -1, -1), DesignTokens::RadiusXl, DesignTokens::RadiusXl);
     painter.fillPath(path, QColor(DesignTokens::bgCard()));
     painter.setPen(QPen(QColor(DesignTokens::border()), 1));
     painter.drawPath(path);
