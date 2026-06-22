@@ -320,7 +320,7 @@ int PlatformLayoutPolicy::bottomSafeAreaInset()
 int PlatformLayoutPolicy::bottomNavContentHeight()
 {
 #ifdef Q_OS_ANDROID
-    return 60;
+    return 56;
 #else
     return 60;
 #endif
@@ -334,7 +334,7 @@ int PlatformLayoutPolicy::bottomNavHeight()
 int PlatformLayoutPolicy::bottomNavPagePadding()
 {
 #ifdef Q_OS_ANDROID
-    return bottomNavHeight() + 16;
+    return bottomNavHeight() + 14;
 #else
     return bottomNavHeight();
 #endif

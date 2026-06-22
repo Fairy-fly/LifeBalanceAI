@@ -47,7 +47,7 @@ void BottomNavBar::setupUi()
 
     m_layout = new QHBoxLayout(this);
 #ifdef Q_OS_ANDROID
-    m_layout->setContentsMargins(8, 5, 8, 7);
+    m_layout->setContentsMargins(8, 3, 8, 6);
     m_layout->setSpacing(4);
 #else
     m_layout->setContentsMargins(8, 6, 8, 8);
@@ -80,7 +80,7 @@ void BottomNavBar::setBottomSafeAreaInset(int inset)
     m_bottomSafeAreaInset = normalizedInset;
     setFixedHeight(desiredHeight);
     if (m_layout)
-        m_layout->setContentsMargins(8, 5, 8, 7 + m_bottomSafeAreaInset);
+        m_layout->setContentsMargins(8, 3, 8, 6 + m_bottomSafeAreaInset);
     updateGeometry();
     updateActiveState(m_currentIndex);
 #else
@@ -101,8 +101,8 @@ BottomNavBar::NavItem BottomNavBar::addNavItem(int index)
     item.container = new QWidget(this);
     item.container->setObjectName(QStringLiteral("navItemContainer%1").arg(index));
 #ifdef Q_OS_ANDROID
-    item.container->setMinimumHeight(42);
-    item.container->setMaximumHeight(42);
+    item.container->setMinimumHeight(40);
+    item.container->setMaximumHeight(40);
 #else
     item.container->setMinimumHeight(50);
     item.container->setMaximumHeight(50);
@@ -112,7 +112,7 @@ BottomNavBar::NavItem BottomNavBar::addNavItem(int index)
     auto *vbox = new QVBoxLayout(item.container);
     vbox->setContentsMargins(0, 0, 0, 0);
 #ifdef Q_OS_ANDROID
-    vbox->setSpacing(3);
+    vbox->setSpacing(2);
 #else
     vbox->setSpacing(3);
 #endif
@@ -134,7 +134,7 @@ BottomNavBar::NavItem BottomNavBar::addNavItem(int index)
         }
     }
 #ifdef Q_OS_ANDROID
-    font.setPointSize(11);
+    font.setPointSize(10);
 #else
     font.setPointSize(12);
 #endif
@@ -143,7 +143,7 @@ BottomNavBar::NavItem BottomNavBar::addNavItem(int index)
     vbox->addWidget(item.textLabel, 0, Qt::AlignCenter);
 
     item.indicator = new QWidget(item.container);
-    item.indicator->setFixedSize(18, 2);
+    item.indicator->setFixedSize(16, 2);
     item.indicator->setStyleSheet(QStringLiteral("background:%1;border-radius:1px;").arg(DesignTokens::accent()));
     item.indicator->raise();
 
@@ -210,10 +210,10 @@ void BottomNavBar::updateActiveState(int index)
             QStringLiteral("background:%1;border-radius:1px;")
                 .arg(active ? DesignTokens::primary() : QStringLiteral("transparent")));
         if (m_items[i].container) {
-            const int indicatorWidth = 18;
+            const int indicatorWidth = 16;
             m_items[i].indicator->setGeometry(
                 (m_items[i].container->width() - indicatorWidth) / 2,
-                qMax(0, m_items[i].container->height() - 6),
+                qMax(0, m_items[i].container->height() - 5),
                 indicatorWidth,
                 2);
             m_items[i].indicator->raise();

@@ -1567,15 +1567,16 @@ connect(m_deepAnalysisService, &LifeBalanceAI::Services::DeepAnalysisService::an
 
 
 
-            const int minH = 40;
+            const int minH = 38;
 
 
 
-            for (QCheckBox *cb : profilePage->findChildren<QCheckBox *>())
-
-
-
+            for (QCheckBox *cb : profilePage->findChildren<QCheckBox *>()) {
                 cb->setMinimumHeight(minH);
+                cb->setProperty("class", QStringLiteral("profileChoice"));
+                cb->style()->unpolish(cb);
+                cb->style()->polish(cb);
+            }
 
 
 
@@ -1931,11 +1932,11 @@ connect(m_deepAnalysisService, &LifeBalanceAI::Services::DeepAnalysisService::an
 
 
 
-                    l->setSpacing(8);
+                    l->setSpacing(7);
 
 
 
-                    l->setContentsMargins(10, 8, 10, 10);
+                    l->setContentsMargins(10, 8, 10, 8);
 
 
 
@@ -3101,11 +3102,11 @@ void MainWindow::applyWarmVisualPolish()
     if (ui->lblLoginLogo) {
         QPixmap hero = UiFactory::loadPixmap(QStringLiteral(":/assets/app_logo.png"));
         ui->lblLoginLogo->setText(QString());
-        ui->lblLoginLogo->setMinimumHeight(168);
-        ui->lblLoginLogo->setMaximumHeight(184);
+        ui->lblLoginLogo->setMinimumHeight(184);
+        ui->lblLoginLogo->setMaximumHeight(204);
         ui->lblLoginLogo->setAlignment(Qt::AlignCenter);
         if (!hero.isNull()) {
-            ui->lblLoginLogo->setPixmap(hero.scaled(164, 164, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+            ui->lblLoginLogo->setPixmap(hero.scaled(180, 180, Qt::KeepAspectRatio, Qt::SmoothTransformation));
         }
     }
 
@@ -3155,12 +3156,12 @@ void MainWindow::applyWarmVisualPolish()
 
     if (auto *loginLayout = qobject_cast<QVBoxLayout *>(ui->page_2->layout())) {
 #ifdef Q_OS_ANDROID
-        loginLayout->setContentsMargins(18, 8, 18, 18);
+        loginLayout->setContentsMargins(18, 18, 18, 18);
         loginLayout->setSpacing(6);
-        tuneSpacer(loginLayout, 0, 10);
-        tuneSpacer(loginLayout, 4, 4);
-        tuneSpacer(loginLayout, 6, 10);
-        tuneSpacer(loginLayout, 8, 8, QSizePolicy::Expanding);
+        tuneSpacer(loginLayout, 0, 18);
+        tuneSpacer(loginLayout, 4, 6);
+        tuneSpacer(loginLayout, 6, 12);
+        tuneSpacer(loginLayout, 8, 4, QSizePolicy::Expanding);
 #else
         loginLayout->setContentsMargins(32, 28, 32, 22);
         loginLayout->setSpacing(8);
@@ -3187,7 +3188,7 @@ void MainWindow::applyWarmVisualPolish()
 
     if (auto *regLayout = qobject_cast<QVBoxLayout *>(ui->page->layout())) {
 #ifdef Q_OS_ANDROID
-        regLayout->setContentsMargins(18, 22, 18, 18);
+        regLayout->setContentsMargins(18, 42, 18, 18);
 #else
         regLayout->setContentsMargins(32, 24, 32, 22);
 #endif
@@ -3206,6 +3207,20 @@ void MainWindow::applyWarmVisualPolish()
             regLayout->setStretch(i, lastSpacer ? 1 : 0);
         }
     }
+
+    if (ui->comboRole) {
+        ui->comboRole->setCurrentIndex(0);
+        ui->comboRole->setEnabled(false);
+        ui->comboRole->hide();
+    }
+    if (ui->lblRoleTitle)
+        ui->lblRoleTitle->hide();
+    if (ui->regSpacer3)
+        ui->regSpacer3->changeSize(20, 0, QSizePolicy::Minimum, QSizePolicy::Fixed);
+    if (ui->regRoleLabelSpacer)
+        ui->regRoleLabelSpacer->changeSize(20, 0, QSizePolicy::Minimum, QSizePolicy::Fixed);
+    if (ui->regSpacer4)
+        ui->regSpacer4->changeSize(20, 12, QSizePolicy::Minimum, QSizePolicy::Fixed);
 
     if (ui->btnSendVerifyCode) {
 #ifdef Q_OS_ANDROID
@@ -3844,9 +3859,9 @@ void MainWindow::updateGoalCollapseState()
 QScrollArea *goalScroll = ui->frameGoal->findChild<QScrollArea *>(QStringLiteral("goalContentScroll"));
 
 #ifdef Q_OS_ANDROID
-    const int expandedScrollH = 96;
-    const int collapsedFrameH = 64;
-    const int expandedFrameH = 156;
+    const int expandedScrollH = 86;
+    const int collapsedFrameH = 60;
+    const int expandedFrameH = 142;
 #else
     const int expandedScrollH = 184;
     const int collapsedFrameH = 120;
@@ -3870,7 +3885,7 @@ QScrollArea *goalScroll = ui->frameGoal->findChild<QScrollArea *>(QStringLiteral
         const int spacingBudget = 28;
         const int stackH = qMax(0, viewportH - navH);
         const int desired = stackH - topBarH - targetFrameH - spacingBudget;
-        return m_goalExpanded ? qBound(330, desired, 420)
+        return m_goalExpanded ? qBound(340, desired, 410)
                                : qBound(460, desired, 540);
     };
     const int targetTabH = ui->tabWidgetDays ? homeTabTargetHeight() : 0;
@@ -8874,7 +8889,7 @@ void MainWindow::loadPage5()
         }
     }
     if (ui->groupBoxEditProfile) {
-        ui->groupBoxEditProfile->setFixedHeight(372);
+        ui->groupBoxEditProfile->setFixedHeight(292);
         ui->groupBoxEditProfile->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     }
 #endif
@@ -9096,9 +9111,9 @@ void MainWindow::loadPage5()
 
     if (auto *form = qobject_cast<QFormLayout *>(ui->groupBoxEditProfile->layout())) {
 #ifdef Q_OS_ANDROID
-        form->setContentsMargins(14, 12, 14, 12);
+        form->setContentsMargins(14, 10, 14, 10);
         form->setHorizontalSpacing(14);
-        form->setVerticalSpacing(6);
+        form->setVerticalSpacing(5);
 #else
         form->setContentsMargins(12, 14, 12, 14);
         form->setHorizontalSpacing(16);
@@ -9115,8 +9130,8 @@ void MainWindow::loadPage5()
         widget->setFocusPolicy(Qt::NoFocus);
         widget->setMinimumWidth(0);
 #ifdef Q_OS_ANDROID
-        widget->setMinimumHeight(26);
-        widget->setMaximumHeight(34);
+        widget->setMinimumHeight(24);
+        widget->setMaximumHeight(30);
 #else
         widget->setMinimumHeight(34);
         widget->setMaximumHeight(42);
@@ -9159,8 +9174,8 @@ void MainWindow::loadPage5()
 
     for (QLabel *label : ui->groupBoxEditProfile->findChildren<QLabel *>()) {
 #ifdef Q_OS_ANDROID
-        label->setMinimumHeight(26);
-        label->setMaximumHeight(34);
+        label->setMinimumHeight(24);
+        label->setMaximumHeight(30);
 #else
         label->setMinimumHeight(34);
 #endif
@@ -9323,9 +9338,9 @@ void MainWindow::loadPage5()
 
 
 
-            btnEditProfile->setMinimumHeight(38);
+            btnEditProfile->setMinimumHeight(34);
 #ifdef Q_OS_ANDROID
-            btnEditProfile->setMaximumHeight(40);
+            btnEditProfile->setMaximumHeight(36);
 #endif
 
 
@@ -9422,8 +9437,8 @@ void MainWindow::loadPage5()
     if (page5Layout) {
 
 #ifdef Q_OS_ANDROID
-        page5Layout->setContentsMargins(14, 14, 14, 12);
-        page5Layout->setSpacing(10);
+        page5Layout->setContentsMargins(14, 12, 14, 10);
+        page5Layout->setSpacing(8);
 #endif
 
 
@@ -9490,8 +9505,8 @@ void MainWindow::loadPage5()
         }
 
 #ifdef Q_OS_ANDROID
-        btnLogout->setMinimumHeight(46);
-        btnLogout->setMaximumHeight(50);
+        btnLogout->setMinimumHeight(40);
+        btnLogout->setMaximumHeight(44);
         btnLogout->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
 #endif
 

@@ -56,27 +56,27 @@ void SideDrawer::addHeader(const QString &nickname, const QString &role)
 #else
     const int topInset = 0;
 #endif
-    header->setFixedHeight(128 + topInset);
+    header->setFixedHeight(136 + topInset);
 
     auto *layout = new QVBoxLayout(header);
-    layout->setContentsMargins(20, 12 + topInset, 20, 12);
-    layout->setSpacing(6);
+    layout->setContentsMargins(20, 10 + topInset, 20, 12);
+    layout->setSpacing(7);
 
     auto *avatar = new QLabel(header);
-    avatar->setFixedSize(52, 52);
+    avatar->setFixedSize(60, 60);
     avatar->setAlignment(Qt::AlignCenter);
     avatar->setText(nickname.isEmpty() ? QStringLiteral("L") : nickname.left(1));
     avatar->setStyleSheet(QStringLiteral(
-        "background:#4EAD7D;color:white;border-radius:26px;"
+        "background:#4EAD7D;color:white;border-radius:30px;"
         "font-family:\"MiSans Medium\",\"MiSans\",\"Microsoft YaHei UI\";"
-        "font-size:21px;font-weight:600;"));
+        "font-size:23px;font-weight:600;"));
     layout->addWidget(avatar);
 
     m_headerNickname = new QLabel(nickname.isEmpty() ? QStringLiteral("LifeBalance AI") : nickname, header);
     m_headerNickname->setWordWrap(false);
     m_headerNickname->setStyleSheet(QStringLiteral(
         "font-family:\"MiSans Medium\",\"MiSans\",\"Microsoft YaHei UI\";"
-        "font-size:18px;font-weight:600;color:#1A1A1A;background:transparent;"));
+        "font-size:18px;font-weight:600;color:#1F2A24;background:transparent;"));
     layout->addWidget(m_headerNickname);
 
     m_headerRole = new QLabel(role, header);
@@ -92,7 +92,7 @@ void SideDrawer::addHeader(const QString &nickname, const QString &role)
     layout->addWidget(m_headerRole);
 
     m_panelLayout->addWidget(header);
-    m_panelLayout->addSpacing(14);
+    m_panelLayout->addSpacing(12);
 }
 
 void SideDrawer::addSeparator()
@@ -100,7 +100,7 @@ void SideDrawer::addSeparator()
     m_currentGroup = nullptr;
     m_currentGroupLayout = nullptr;
     m_currentGroupItemCount = 0;
-    m_panelLayout->addSpacing(14);
+    m_panelLayout->addSpacing(12);
 }
 
 void SideDrawer::addItem(const QString &icon, const QString &text, std::function<void()> callback)
@@ -118,7 +118,7 @@ void SideDrawer::addItem(const QString &icon, const QString &text, std::function
         m_currentGroup->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
         m_currentGroup->setStyleSheet(QStringLiteral(
             "QFrame#drawerItemGroup{"
-            "background:#FFFDF9;border:1px solid #E8DED2;border-radius:14px;"
+            "background:#FFFDF9;border:1px solid #EFE4D8;border-radius:14px;"
             "}"));
 
         m_currentGroupLayout = new QVBoxLayout(m_currentGroup);
@@ -143,7 +143,7 @@ void SideDrawer::addItem(const QString &icon, const QString &text, std::function
     auto *button = new QPushButton(icon + QStringLiteral("  ") + text + rightMark, m_currentGroup);
     button->setFlat(true);
     button->setCursor(Qt::PointingHandCursor);
-    button->setFixedHeight(54);
+    button->setFixedHeight(52);
     button->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
 
     const QString normalColor = isLogout ? DesignTokens::accentDark() : DesignTokens::textBody();

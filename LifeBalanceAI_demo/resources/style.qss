@@ -35,7 +35,7 @@ QLabel {
 QLabel#label_5 {
     font-family: "sans-serif-rounded", "MiSans Rounded", "MiSans", "HarmonyOS Sans SC", "OPPOSans", "vivo Sans", "Noto Sans SC", "Microsoft YaHei UI", sans-serif;
     color: #1A1A1A;
-    font-size: 29px;
+    font-size: 28px;
     font-weight: 500;
     letter-spacing: 1.4px;
     padding: 2px 0;
@@ -47,8 +47,8 @@ QLabel#pageTitle,
 QLabel#warmTitle {
     font-family: "MiSans Medium", "MiSans", "Noto Sans SC", "Microsoft YaHei UI", "PingFang SC", sans-serif;
     color: #1A1A1A;
-    font-size: 24px;
-    font-weight: 600;
+    font-size: 26px;
+    font-weight: 500;
     padding: 2px 0;
 }
 
@@ -531,13 +531,14 @@ QGroupBox[class="planCard"] {
     margin-top: 10px;
     padding: 10px 10px 10px 10px;
     background: #FFFDF9;
+    border-color: #EFE4D8;
 }
 
 QGroupBox[class="planCard"]::title {
     left: 16px;
     top: 0;
     padding: 1px 10px 2px 10px;
-    border: 1px solid #BDEDD5;
+    border: 1px solid #CDEFD9;
     border-radius: 9px;
     background: #F0FAF5;
     color: #2F6F57;
@@ -560,6 +561,13 @@ QLabel#lblGoalTitle {
 QLabel#lblGoalContent {
     color: #333333;
     font-size: 14px;
+}
+
+QTextEdit#goalContentEdit {
+    color: #48423C;
+    font-size: 13px;
+    line-height: 1.5;
+    background: transparent;
 }
 
 QWidget#goalHeaderRow,
@@ -648,8 +656,8 @@ QComboBox {
 QLineEdit[class="profileDisplay"],
 QSpinBox[class="profileDisplay"],
 QComboBox[class="profileDisplay"] {
-    min-height: 31px;
-    max-height: 42px;
+    min-height: 28px;
+    max-height: 34px;
     padding: 2px 0;
     border: none;
     border-radius: 0;
@@ -758,8 +766,8 @@ QComboBox[class="profileDisplay"],
 QLineEdit[class="profileDisplay"]:disabled,
 QSpinBox[class="profileDisplay"]:disabled,
 QComboBox[class="profileDisplay"]:disabled {
-    min-height: 31px;
-    max-height: 42px;
+    min-height: 28px;
+    max-height: 34px;
     padding: 2px 0;
     border: none;
     border-radius: 0;
@@ -782,7 +790,7 @@ QComboBox[class="profileDisplay"]::down-arrow {
 
 QLabel[class="profileKey"] {
     color: #666666;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 400;
     padding: 1px 0;
     background: transparent;
@@ -790,11 +798,41 @@ QLabel[class="profileKey"] {
 
 QLabel[class="profileValue"] {
     color: #333333;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
     line-height: 1.45;
     padding: 1px 0;
     background: transparent;
+}
+
+QCheckBox[class="profileChoice"] {
+    min-height: 36px;
+    padding: 0 10px;
+    spacing: 8px;
+    border: 1px solid #EFE4D8;
+    border-radius: 12px;
+    background: #FFFDF9;
+    color: #48423C;
+    font-size: 13px;
+}
+
+QCheckBox[class="profileChoice"]:hover {
+    border-color: #BDEDD5;
+    background: #F8FCF9;
+}
+
+QCheckBox[class="profileChoice"]::indicator {
+    width: 18px;
+    height: 18px;
+    border-radius: 6px;
+}
+
+QCheckBox[class="profileChoice"]::indicator:checked {
+    width: 18px;
+    height: 18px;
+    border-radius: 6px;
+    background: #4EAD7D;
+    border-color: #4EAD7D;
 }
 
 QComboBox QAbstractItemView {
@@ -988,9 +1026,9 @@ QPushButton#btnFeedbackDayAfterExercise {
     min-height: 28px;
     max-height: 30px;
     padding: 0 8px;
-    background: #FFF4EA;
-    color: #C9783F;
-    border: 1px solid #F3BE8D;
+    background: #E8F8F2;
+    color: #2F6F57;
+    border: 1px solid #BDEDD5;
     border-radius: 14px;
     font-size: 11px;
     font-weight: 500;
@@ -1002,9 +1040,9 @@ QPushButton#btnAdjust {
     min-height: 28px;
     max-height: 30px;
     padding: 0 8px;
-    background: #EFF7FB;
-    color: #5D91BA;
-    border: 1px solid #B8D1E5;
+    background: #F4FAFD;
+    color: #527FA3;
+    border: 1px solid #C9DDED;
     border-radius: 14px;
     font-size: 11px;
     font-weight: 500;
@@ -1234,23 +1272,23 @@ QTabWidget#tabWidgetDays::pane {
 
 QTabWidget#tabWidgetDays QTabBar::tab {
     min-width: 86px;
-    min-height: 30px;
-    padding: 2px 10px;
+    min-height: 28px;
+    padding: 1px 10px;
     margin-right: 6px;
     margin-bottom: 8px;
     border: 1px solid #E8DED2;
     border-radius: 15px;
     background: #FFFDF9;
-    color: #6F665D;
+    color: #8A8178;
     font-size: 13px;
     font-family: "MiSans", "MiSans-Regular", "MiSans Regular", "Noto Sans SC", "Microsoft YaHei UI", sans-serif;
     font-weight: 400;
 }
 
 QTabWidget#tabWidgetDays QTabBar::tab:selected {
-    background: #E8F8F2;
+    background: #E3F6ED;
     color: #2F6F57;
-    border-color: #BDEDD5;
+    border-color: #A8E6C3;
     font-weight: 500;
 }
 
@@ -1354,6 +1392,7 @@ QLabel#label_5 {
     font-family: "sans-serif-rounded", "MiSans Rounded", "MiSans", "HarmonyOS Sans SC", "OPPOSans", "vivo Sans", "Noto Sans SC", "Microsoft YaHei UI", sans-serif;
     font-weight: 500;
     letter-spacing: 1.4px;
+    font-size: 28px;
 }
 
 QLabel#lblRegTitle,
@@ -1448,9 +1487,9 @@ QPushButton#btnFeedbackDayAfterMorning,
 QPushButton#btnFeedbackDayAfterLunch,
 QPushButton#btnFeedbackDayAfterDinner,
 QPushButton#btnFeedbackDayAfterExercise {
-    background: #FFF8F1;
-    color: #B86A3F;
-    border-color: #EECBAA;
+    background: #E8F8F2;
+    color: #2F6F57;
+    border-color: #BDEDD5;
     font-weight: 500;
 }
 
@@ -1459,6 +1498,74 @@ QPushButton#btnAdjust {
     color: #527FA3;
     border-color: #C9DDED;
     font-weight: 500;
+}
+
+/* ============ Phase 6B: main page and navigation polish ============ */
+
+QGroupBox[class="planCard"] {
+    border-color: #EFE4D8;
+}
+
+QTextEdit#goalContentEdit {
+    color: #48423C;
+    font-size: 13px;
+    line-height: 1.5;
+    background: transparent;
+}
+
+QTabWidget#tabWidgetDays QTabBar::tab {
+    min-height: 28px;
+    padding: 1px 10px;
+    color: #8A8178;
+}
+
+QTabWidget#tabWidgetDays QTabBar::tab:selected {
+    background: #E3F6ED;
+    color: #2F6F57;
+    border-color: #A8E6C3;
+}
+
+QPushButton#btnEditProfile {
+    min-height: 34px;
+    max-height: 36px;
+    border-radius: 14px;
+}
+
+QPushButton#btnLogout {
+    min-height: 40px;
+    max-height: 44px;
+    border-radius: 16px;
+}
+
+QCheckBox[class="profileChoice"] {
+    min-height: 36px;
+    padding: 0 10px;
+    spacing: 8px;
+    border: 1px solid #EFE4D8;
+    border-radius: 12px;
+    background: #FFFDF9;
+    color: #48423C;
+    font-size: 13px;
+    font-weight: 400;
+}
+
+QCheckBox[class="profileChoice"]:hover {
+    border-color: #BDEDD5;
+    background: #F8FCF9;
+}
+
+QCheckBox[class="profileChoice"]::indicator {
+    width: 18px;
+    height: 18px;
+    border-radius: 6px;
+}
+
+QCheckBox[class="profileChoice"]::indicator:checked {
+    width: 18px;
+    height: 18px;
+    border-radius: 6px;
+    background: #4EAD7D;
+    border-color: #4EAD7D;
 }
 
 QLabel#dialogTitle {
