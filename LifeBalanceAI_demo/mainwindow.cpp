@@ -79,6 +79,8 @@
 
 
 #include <QAbstractScrollArea>
+#include <QAbstractSpinBox>
+#include <QSpinBox>
 
 #include <QScrollArea>
 
@@ -1591,6 +1593,12 @@ connect(m_deepAnalysisService, &LifeBalanceAI::Services::DeepAnalysisService::an
             for (QLineEdit *le : profilePage->findChildren<QLineEdit *>()) {
                 le->setMinimumHeight(minH);
                 le->setMaximumHeight(minH + 4);
+            }
+
+            for (QSpinBox *spin : profilePage->findChildren<QSpinBox *>()) {
+                spin->setMinimumHeight(minH);
+                spin->setMaximumHeight(minH + 4);
+                spin->setButtonSymbols(QAbstractSpinBox::NoButtons);
             }
 
             for (QComboBox *combo : profilePage->findChildren<QComboBox *>()) {
