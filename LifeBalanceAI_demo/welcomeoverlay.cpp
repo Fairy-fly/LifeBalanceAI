@@ -7,7 +7,7 @@
 
 WelcomeOverlay::WelcomeOverlay(QWidget *parent)
     : QWidget(parent),
-      m_background(QStringLiteral(":/assets/welcome_success.png"))
+      m_background(QStringLiteral(":/assets/splash_health_companion_clean.png"))
 {
     setObjectName(QStringLiteral("welcomeOverlay"));
     setAttribute(Qt::WA_DeleteOnClose, true);

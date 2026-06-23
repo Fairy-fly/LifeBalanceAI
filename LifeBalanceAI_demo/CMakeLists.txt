@@ -81,6 +81,7 @@ qt_add_resources(LifeBalanceAI_demo "LifeBalanceResources"
         resources/style.qss
         resources/assets/welcome_hero.png
         resources/assets/welcome_success.png
+        resources/assets/splash_health_companion_clean.png
         resources/assets/app_logo.png
         resources/assets/empty_plan.png
         resources/assets/empty_report.png

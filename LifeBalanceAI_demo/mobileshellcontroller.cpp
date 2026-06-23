@@ -138,7 +138,8 @@ void MobileShellController::positionBottomNav()
 #ifdef Q_OS_ANDROID
     const int bottomInset = LifeBalanceAI::Ui::PlatformLayoutPolicy::bottomSafeAreaInset();
     m_bottomNav->setBottomSafeAreaInset(bottomInset);
-    const int navHeight = LifeBalanceAI::Ui::PlatformLayoutPolicy::bottomNavContentHeight() + bottomInset;
+    const int navHeight = qMax(LifeBalanceAI::Ui::PlatformLayoutPolicy::bottomNavContentHeight() + bottomInset,
+                               m_bottomNav->height());
 
     if (m_stack) {
         m_stack->setMinimumHeight(0);
@@ -146,22 +147,20 @@ void MobileShellController::positionBottomNav()
     }
 
     if (auto *grid = qobject_cast<QGridLayout *>(host->layout())) {
-        if (m_bottomNav->parentWidget() != host)
-            m_bottomNav->setParent(host);
-        if (grid->indexOf(m_bottomNav) < 0)
-            grid->addWidget(m_bottomNav, 1, 0);
+        if (grid->indexOf(m_bottomNav) >= 0)
+            grid->removeWidget(m_bottomNav);
         grid->setRowStretch(0, 1);
         grid->setRowStretch(1, 0);
-        grid->setRowMinimumHeight(1, m_bottomNav->isVisible() ? navHeight : 0);
+        grid->setRowMinimumHeight(1, 0);
         grid->invalidate();
-    } else {
-        if (m_bottomNav->parentWidget() != host)
-            m_bottomNav->setParent(host);
-        m_bottomNav->setGeometry(0,
-                                 qMax(0, host->height() - navHeight),
-                                 host->width(),
-                                 navHeight);
     }
+
+    if (m_bottomNav->parentWidget() != host)
+        m_bottomNav->setParent(host);
+    m_bottomNav->setGeometry(0,
+                             qMax(0, host->height() - navHeight),
+                             host->width(),
+                             navHeight);
 
     if (m_bottomNav->parentWidget() != host)
         m_bottomNav->setParent(host);

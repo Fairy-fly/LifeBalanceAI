@@ -311,7 +311,10 @@ int PlatformLayoutPolicy::bottomSafeAreaInset()
         inset = screenGeometryBottomInset();
     if (inset <= 0)
         inset = 48;
-    return qBound(0, inset, 240);
+    // Some Android gesture-navigation implementations report a generous
+    // bottom inset.  The bottom bar background should still fill the gesture
+    // area, but reserving the full value makes the navigation feel suspended.
+    return qBound(0, inset, 22);
 #else
     return 0;
 #endif
@@ -320,7 +323,7 @@ int PlatformLayoutPolicy::bottomSafeAreaInset()
 int PlatformLayoutPolicy::bottomNavContentHeight()
 {
 #ifdef Q_OS_ANDROID
-    return 56;
+    return 44;
 #else
     return 60;
 #endif
@@ -334,7 +337,7 @@ int PlatformLayoutPolicy::bottomNavHeight()
 int PlatformLayoutPolicy::bottomNavPagePadding()
 {
 #ifdef Q_OS_ANDROID
-    return bottomNavHeight() + 14;
+    return bottomNavHeight() + 8;
 #else
     return bottomNavHeight();
 #endif

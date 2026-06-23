@@ -35,6 +35,7 @@ private:
     QRect pillGeometryFor(int index) const;
 
 protected:
+    void paintEvent(QPaintEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
 

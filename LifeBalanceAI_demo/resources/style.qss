@@ -806,32 +806,34 @@ QLabel[class="profileValue"] {
 }
 
 QCheckBox[class="profileChoice"] {
-    min-height: 36px;
-    padding: 0 10px;
-    spacing: 8px;
-    border: 1px solid #EFE4D8;
-    border-radius: 12px;
-    background: #FFFDF9;
+    min-height: 30px;
+    max-height: 34px;
+    padding: 0 6px;
+    spacing: 6px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
     color: #48423C;
-    font-size: 13px;
+    font-size: 12px;
 }
 
 QCheckBox[class="profileChoice"]:hover {
-    border-color: #BDEDD5;
     background: #F8FCF9;
 }
 
 QCheckBox[class="profileChoice"]::indicator {
-    width: 18px;
-    height: 18px;
-    border-radius: 6px;
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    border: 1px solid #D8CAB9;
+    background: #FFFDF9;
 }
 
 QCheckBox[class="profileChoice"]::indicator:checked {
-    width: 18px;
-    height: 18px;
-    border-radius: 6px;
-    background: #4EAD7D;
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    background: #7BC99E;
     border-color: #4EAD7D;
 }
 
@@ -1538,34 +1540,49 @@ QPushButton#btnLogout {
 }
 
 QCheckBox[class="profileChoice"] {
-    min-height: 36px;
-    padding: 0 10px;
-    spacing: 8px;
-    border: 1px solid #EFE4D8;
-    border-radius: 12px;
-    background: #FFFDF9;
+    min-height: 30px;
+    max-height: 34px;
+    padding: 0 6px;
+    spacing: 6px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
     color: #48423C;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 400;
 }
 
 QCheckBox[class="profileChoice"]:hover {
-    border-color: #BDEDD5;
     background: #F8FCF9;
 }
 
 QCheckBox[class="profileChoice"]::indicator {
-    width: 18px;
-    height: 18px;
-    border-radius: 6px;
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    border: 1px solid #D8CAB9;
+    background: #FFFDF9;
 }
 
 QCheckBox[class="profileChoice"]::indicator:checked {
-    width: 18px;
-    height: 18px;
-    border-radius: 6px;
-    background: #4EAD7D;
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    background: #7BC99E;
     border-color: #4EAD7D;
+}
+
+QLineEdit#editAge,
+QLineEdit#editHeight,
+QLineEdit#editWeight,
+QLineEdit#editAllergy,
+QLineEdit#editFood,
+QLineEdit#editSports,
+QLineEdit#editTarget,
+QComboBox#comboGender {
+    min-height: 32px;
+    max-height: 36px;
+    padding: 3px 10px;
 }
 
 QLabel#dialogTitle {
@@ -1639,4 +1656,52 @@ QLabel#analysisIntroNote,
 QLabel#legalDisclaimer {
     color: #958C84;
     font-weight: 400;
+}
+
+/* ============ Phase 6C: defense polish fixes ============ */
+
+QLabel#analysisPageTitle,
+QLabel#reportPageTitle,
+QLabel#lblPage5Title {
+    font-weight: 600;
+}
+
+QWidget#bottomNavBar {
+    background: transparent;
+    border: none;
+}
+
+QGroupBox[class="profileChoiceGroup"] {
+    background: rgba(255,253,249,120);
+    border: none;
+    border-radius: 10px;
+    margin-top: 10px;
+    padding-top: 12px;
+}
+
+QGroupBox[class="profileChoiceGroup"]::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    left: 6px;
+    padding: 0 6px;
+    color: #2F6F57;
+    background: transparent;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+QLabel#yesterdayReviewTextLabel {
+    background: #FFFDF9;
+    border: 1px solid #EFE4D8;
+    border-radius: 12px;
+    padding: 10px 12px 12px 12px;
+    color: #48423C;
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.55;
+}
+
+QScrollArea#yesterdayReviewScroll {
+    background: transparent;
+    border: none;
 }

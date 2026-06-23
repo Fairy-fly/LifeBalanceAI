@@ -742,6 +742,15 @@ static void forceTextWidth(QTextEdit *edit)
     if (w > 0)
         edit->document()->setTextWidth(w - 8);
     edit->setLineWrapMode(QTextEdit::WidgetWidth);
+    if (edit->objectName() == QStringLiteral("goalContentEdit")) {
+        const int docHeight = qMax(48, int(edit->document()->size().height()) + 14);
+        edit->setMinimumHeight(docHeight);
+        edit->setMaximumHeight(QWIDGETSIZE_MAX);
+        if (QWidget *host = edit->parentWidget()) {
+            host->setMinimumHeight(docHeight);
+            host->setMaximumHeight(QWIDGETSIZE_MAX);
+        }
+    }
 }
 
 
@@ -1567,15 +1576,26 @@ connect(m_deepAnalysisService, &LifeBalanceAI::Services::DeepAnalysisService::an
 
 
 
-            const int minH = 38;
+            const int minH = 32;
 
 
 
             for (QCheckBox *cb : profilePage->findChildren<QCheckBox *>()) {
                 cb->setMinimumHeight(minH);
+                cb->setMaximumHeight(minH + 2);
                 cb->setProperty("class", QStringLiteral("profileChoice"));
                 cb->style()->unpolish(cb);
                 cb->style()->polish(cb);
+            }
+
+            for (QLineEdit *le : profilePage->findChildren<QLineEdit *>()) {
+                le->setMinimumHeight(minH);
+                le->setMaximumHeight(minH + 4);
+            }
+
+            for (QComboBox *combo : profilePage->findChildren<QComboBox *>()) {
+                combo->setMinimumHeight(minH);
+                combo->setMaximumHeight(minH + 4);
             }
 
 
@@ -3335,6 +3355,9 @@ void MainWindow::applyWarmVisualPolish()
     auto reflowChoiceGrid = [](QGroupBox *box, QLineEdit *extraEdit, int columns) {
         if (!box || columns <= 0)
             return;
+        box->setProperty("class", QStringLiteral("profileChoiceGroup"));
+        box->style()->unpolish(box);
+        box->style()->polish(box);
         auto *grid = qobject_cast<QGridLayout *>(box->layout());
         if (!grid)
             return;
@@ -3363,13 +3386,14 @@ void MainWindow::applyWarmVisualPolish()
         while (QLayoutItem *item = grid->takeAt(0))
             delete item;
 
-        grid->setContentsMargins(8, 12, 8, 8);
-        grid->setHorizontalSpacing(8);
-        grid->setVerticalSpacing(6);
+        grid->setContentsMargins(4, 8, 4, 6);
+        grid->setHorizontalSpacing(6);
+        grid->setVerticalSpacing(5);
         for (int i = 0; i < entries.size(); ++i) {
             QCheckBox *check = entries.at(i).checkBox;
             check->setMinimumWidth(0);
-            check->setMinimumHeight(24);
+            check->setMinimumHeight(30);
+            check->setMaximumHeight(34);
             check->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
             grid->addWidget(check, i / columns, i % columns);
         }
@@ -3859,9 +3883,9 @@ void MainWindow::updateGoalCollapseState()
 QScrollArea *goalScroll = ui->frameGoal->findChild<QScrollArea *>(QStringLiteral("goalContentScroll"));
 
 #ifdef Q_OS_ANDROID
-    const int expandedScrollH = 86;
+    const int expandedScrollH = 216;
     const int collapsedFrameH = 60;
-    const int expandedFrameH = 142;
+    const int expandedFrameH = 274;
 #else
     const int expandedScrollH = 184;
     const int collapsedFrameH = 120;
@@ -6326,17 +6350,6 @@ void MainWindow::onFeedbackButtonClicked(QTextEdit *textEdit, const QString &slo
 
 
     DatabaseManager::instance().markItemDone(itemId);
-
-    MotionHelper::animateCompletionFeedback(
-        ui->stackedWidget,
-        isModifyMode ? tr("反馈已更新") : tr("打卡完成"));
-
-
-
-
-
-
-
     // 鈹€鈹€ 5. Ascendant role 锟?partial update via AI 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 
@@ -7272,8 +7285,8 @@ void MainWindow::showReportStatus(const QString &message)
         ? ui->stackedWidget->findChild<QLabel *>(QStringLiteral("reportStatusLabel"))
         : nullptr;
     if (status) {
-        status->setText(message);
-        status->show();
+        status->clear();
+        status->hide();
     }
     if (statusBar())
         statusBar()->showMessage(message, 4500);
@@ -8743,8 +8756,63 @@ void MainWindow::onViewYesterdayClicked()
 
 
 #ifdef Q_OS_ANDROID
-    AnimatedDialog::info(this, QString::fromUtf8("昨日计划回顾"), display.trimmed());
+{
+    QDialog reviewDialog(this);
+    QFrame *reviewPanel = createAndroidChildModalPanel(&reviewDialog);
+    QWidget *reviewContent = reviewPanel ? static_cast<QWidget *>(reviewPanel)
+                                         : static_cast<QWidget *>(&reviewDialog);
+    auto *layout = new QVBoxLayout(reviewContent);
+    layout->setContentsMargins(14, 16, 14, 16);
+    layout->setSpacing(7);
+
+    auto *title = new QLabel(QString::fromUtf8("昨日计划回顾"), reviewContent);
+    title->setObjectName(QStringLiteral("reportHistoryTitle"));
+    title->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    title->setMaximumHeight(30);
+    layout->addWidget(title);
+
+    auto *contentScroll = new QScrollArea(reviewContent);
+    contentScroll->setObjectName(QStringLiteral("yesterdayReviewScroll"));
+    contentScroll->setWidgetResizable(true);
+    contentScroll->setFrameShape(QFrame::NoFrame);
+    contentScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    contentScroll->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    auto *contentLabel = new QLabel(display.trimmed(), contentScroll);
+    contentLabel->setObjectName(QStringLiteral("yesterdayReviewTextLabel"));
+    contentLabel->setWordWrap(true);
+    contentLabel->setTextInteractionFlags(Qt::NoTextInteraction);
+    contentLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    contentScroll->setWidget(contentLabel);
+    if (contentScroll->viewport()) {
+        contentScroll->viewport()->setAttribute(Qt::WA_AcceptTouchEvents, true);
+        QScroller::grabGesture(contentScroll->viewport(), QScroller::TouchGesture);
+    }
+    const QRect available = LifeBalanceAI::Ui::PlatformLayoutPolicy::dialogAvailableRect();
+    const int textWidth = qMax(260, qMin(available.width() * 74 / 100, 330));
+    const QFontMetrics metrics(contentLabel->font());
+    const QRect textBounds = metrics.boundingRect(QRect(0, 0, textWidth, 10000),
+                                                  Qt::TextWordWrap,
+                                                  display.trimmed());
+    const int contentH = qBound(88, textBounds.height() + 16, available.height() * 38 / 100);
+    contentScroll->setMinimumHeight(qMin(contentH, available.height() * 30 / 100));
+    contentScroll->setMaximumHeight(available.height() * 38 / 100);
+    layout->addWidget(contentScroll, 1);
+
+    auto *closeButton = UiFactory::primaryButton(QString::fromUtf8("知道了"), reviewContent);
+    closeButton->setMinimumHeight(40);
+    closeButton->setMaximumHeight(44);
+    layout->addWidget(closeButton);
+    connect(closeButton, &QPushButton::clicked, &reviewDialog, &QDialog::accept);
+
+    finalizeAndroidChildModal(&reviewDialog,
+                              reviewPanel,
+                              LifeBalanceAI::Ui::PlatformLayoutPolicy::DialogRole::Input,
+                              QSize(qMin(available.width() * 86 / 100, 380),
+                                    qMin(available.height() * 48 / 100,
+                                         title->sizeHint().height() + contentH + closeButton->sizeHint().height() + 58)));
+    reviewDialog.exec();
     return;
+}
 #endif
 
     QDialog reviewDialog(this);
@@ -10411,7 +10479,7 @@ void MainWindow::showReportHistory()
     detailButtons->setSpacing(10);
     detailButtons->addStretch();
     auto *btnCloseDetail = UiFactory::ghostButton(tr("关闭"), detailContent);
-    auto *btnExportDetail = UiFactory::primaryButton(tr("导出 PNG"), detailContent);
+    auto *btnExportDetail = UiFactory::primaryButton(tr("导出图片"), detailContent);
     btnCloseDetail->setMinimumWidth(96);
     btnExportDetail->setMinimumWidth(128);
     detailButtons->addWidget(btnCloseDetail);
@@ -11237,6 +11305,7 @@ int MainWindow::setupReportPage()
     vlay->addWidget(btnGenerate);
 
     auto *reportStatus = createInlineStatusLabel(QStringLiteral("reportStatusLabel"), existing);
+    reportStatus->hide();
     vlay->addWidget(reportStatus);
 
 
@@ -11586,7 +11655,7 @@ void MainWindow::onReportReady(int userId, const LifeBalanceAI::Models::ReportDa
 
     auto *readyButtons = new QHBoxLayout();
     readyButtons->setSpacing(10);
-    auto *btnExportReady = UiFactory::primaryButton(QString::fromUtf8("导出 PNG"), readyContent);
+    auto *btnExportReady = UiFactory::primaryButton(QString::fromUtf8("导出图片"), readyContent);
     auto *btnConfirmReady = UiFactory::secondaryButton(QString::fromUtf8("确定"), readyContent);
     readyButtons->addWidget(btnExportReady);
     readyButtons->addWidget(btnConfirmReady);

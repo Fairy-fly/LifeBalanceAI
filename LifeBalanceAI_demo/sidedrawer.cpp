@@ -56,32 +56,32 @@ void SideDrawer::addHeader(const QString &nickname, const QString &role)
 #else
     const int topInset = 0;
 #endif
-    header->setFixedHeight(136 + topInset);
+    header->setFixedHeight(184 + topInset);
 
     auto *layout = new QVBoxLayout(header);
-    layout->setContentsMargins(20, 10 + topInset, 20, 12);
-    layout->setSpacing(7);
+    layout->setContentsMargins(20, 8 + topInset, 20, 14);
+    layout->setSpacing(10);
 
     auto *avatar = new QLabel(header);
-    avatar->setFixedSize(60, 60);
+    avatar->setFixedSize(84, 84);
     avatar->setAlignment(Qt::AlignCenter);
     avatar->setText(nickname.isEmpty() ? QStringLiteral("L") : nickname.left(1));
     avatar->setStyleSheet(QStringLiteral(
-        "background:#4EAD7D;color:white;border-radius:30px;"
+        "background:#4EAD7D;color:white;border-radius:42px;"
         "font-family:\"MiSans Medium\",\"MiSans\",\"Microsoft YaHei UI\";"
-        "font-size:23px;font-weight:600;"));
+        "font-size:31px;font-weight:600;"));
     layout->addWidget(avatar);
 
     m_headerNickname = new QLabel(nickname.isEmpty() ? QStringLiteral("LifeBalance AI") : nickname, header);
     m_headerNickname->setWordWrap(false);
     m_headerNickname->setStyleSheet(QStringLiteral(
         "font-family:\"MiSans Medium\",\"MiSans\",\"Microsoft YaHei UI\";"
-        "font-size:18px;font-weight:600;color:#1F2A24;background:transparent;"));
+        "font-size:22px;font-weight:600;color:#1F2A24;background:transparent;"));
     layout->addWidget(m_headerNickname);
 
     m_headerRole = new QLabel(role, header);
     m_headerRole->setAlignment(Qt::AlignCenter);
-    m_headerRole->setFixedHeight(24);
+    m_headerRole->setFixedHeight(26);
     m_headerRole->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     m_headerRole->setContentsMargins(10, 0, 10, 0);
     m_headerRole->setStyleSheet(QStringLiteral(
@@ -92,7 +92,7 @@ void SideDrawer::addHeader(const QString &nickname, const QString &role)
     layout->addWidget(m_headerRole);
 
     m_panelLayout->addWidget(header);
-    m_panelLayout->addSpacing(12);
+    m_panelLayout->addSpacing(10);
 }
 
 void SideDrawer::addSeparator()

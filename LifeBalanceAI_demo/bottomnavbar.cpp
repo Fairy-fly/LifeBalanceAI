@@ -8,10 +8,21 @@
 #include <QEasingCurve>
 #include <QFont>
 #include <QFontDatabase>
+#include <QLinearGradient>
 #include <QMouseEvent>
+#include <QPainter>
+#include <QPaintEvent>
 #include <QResizeEvent>
 #include <QSizePolicy>
 #include <QTimer>
+
+namespace {
+#ifdef Q_OS_ANDROID
+constexpr int kAndroidFadeExtension = 48;
+#else
+constexpr int kAndroidFadeExtension = 0;
+#endif
+}
 
 BottomNavBar::BottomNavBar(QWidget *parent)
     : QWidget(parent)
@@ -27,11 +38,9 @@ void BottomNavBar::setupUi()
     setFixedHeight(66);
 #endif
     setObjectName(QStringLiteral("bottomNavBar"));
-    setAttribute(Qt::WA_StyledBackground, true);
-    setAutoFillBackground(true);
-    setStyleSheet(QStringLiteral(
-        "#bottomNavBar{background:%1;border-top:1px solid %2;}")
-        .arg(DesignTokens::bgCard(), DesignTokens::borderLight()));
+    setAttribute(Qt::WA_StyledBackground, false);
+    setAutoFillBackground(false);
+    setStyleSheet(QStringLiteral("#bottomNavBar{background:transparent;border:none;}"));
 
 #ifndef Q_OS_ANDROID
     auto *shadow = new QGraphicsDropShadowEffect(this);
@@ -47,7 +56,7 @@ void BottomNavBar::setupUi()
 
     m_layout = new QHBoxLayout(this);
 #ifdef Q_OS_ANDROID
-    m_layout->setContentsMargins(8, 3, 8, 6);
+    m_layout->setContentsMargins(8, 2, 8, 2);
     m_layout->setSpacing(4);
 #else
     m_layout->setContentsMargins(8, 6, 8, 8);
@@ -73,14 +82,16 @@ void BottomNavBar::setBottomSafeAreaInset(int inset)
 #ifdef Q_OS_ANDROID
     const int normalizedInset = qMax(0, inset);
     const int desiredHeight = LifeBalanceAI::Ui::PlatformLayoutPolicy::bottomNavContentHeight()
-                              + normalizedInset;
+                              + normalizedInset + kAndroidFadeExtension;
     if (m_bottomSafeAreaInset == normalizedInset && height() == desiredHeight)
         return;
 
     m_bottomSafeAreaInset = normalizedInset;
     setFixedHeight(desiredHeight);
-    if (m_layout)
-        m_layout->setContentsMargins(8, 3, 8, 6 + m_bottomSafeAreaInset);
+    if (m_layout) {
+        const int visualBottomPadding = qMin(m_bottomSafeAreaInset, 17);
+        m_layout->setContentsMargins(8, 0, 8, 2 + visualBottomPadding);
+    }
     updateGeometry();
     updateActiveState(m_currentIndex);
 #else
@@ -101,8 +112,8 @@ BottomNavBar::NavItem BottomNavBar::addNavItem(int index)
     item.container = new QWidget(this);
     item.container->setObjectName(QStringLiteral("navItemContainer%1").arg(index));
 #ifdef Q_OS_ANDROID
-    item.container->setMinimumHeight(40);
-    item.container->setMaximumHeight(40);
+    item.container->setMinimumHeight(36);
+    item.container->setMaximumHeight(36);
 #else
     item.container->setMinimumHeight(50);
     item.container->setMaximumHeight(50);
@@ -160,7 +171,11 @@ BottomNavBar::NavItem BottomNavBar::addNavItem(int index)
         emit currentChanged(index);
     });
 
+#ifdef Q_OS_ANDROID
+    m_layout->addWidget(item.container, 1, Qt::AlignBottom);
+#else
     m_layout->addWidget(item.container, 1);
+#endif
     return item;
 }
 
@@ -171,8 +186,8 @@ QRect BottomNavBar::pillGeometryFor(int index) const
 
     QWidget *container = m_items[index].container;
 #ifdef Q_OS_ANDROID
-    QPoint topLeft = container->mapTo(const_cast<BottomNavBar *>(this), QPoint(5, 6));
-    return QRect(topLeft, QSize(qMax(50, container->width() - 10), 38));
+    QPoint topLeft = container->mapTo(const_cast<BottomNavBar *>(this), QPoint(5, 3));
+    return QRect(topLeft, QSize(qMax(50, container->width() - 10), 34));
 #else
     QPoint topLeft = container->mapTo(const_cast<BottomNavBar *>(this), QPoint(6, 8));
     return QRect(topLeft, QSize(qMax(56, container->width() - 12), 42));
@@ -213,7 +228,7 @@ void BottomNavBar::updateActiveState(int index)
             const int indicatorWidth = 16;
             m_items[i].indicator->setGeometry(
                 (m_items[i].container->width() - indicatorWidth) / 2,
-                qMax(0, m_items[i].container->height() - 5),
+                qMax(0, m_items[i].container->height() - 4),
                 indicatorWidth,
                 2);
             m_items[i].indicator->raise();
@@ -222,12 +237,46 @@ void BottomNavBar::updateActiveState(int index)
     }
 }
 
+void BottomNavBar::paintEvent(QPaintEvent *event)
+{
+    Q_UNUSED(event);
+
+    QPainter painter(this);
+    painter.setRenderHint(QPainter::Antialiasing, true);
+
+    const int fadeHeight =
+#ifdef Q_OS_ANDROID
+        qMin(kAndroidFadeExtension + 32, qMax(kAndroidFadeExtension + 26, height() * 3 / 5));
+#else
+        14;
+#endif
+    QLinearGradient fade(0, 0, 0, fadeHeight);
+    fade.setColorAt(0.0, QColor(255, 249, 239, 0));
+    fade.setColorAt(0.35, QColor(255, 251, 244, 26));
+    fade.setColorAt(0.76, QColor(255, 252, 247, 150));
+    fade.setColorAt(1.0, QColor(255, 253, 249, 255));
+    painter.fillRect(QRect(0, 0, width(), fadeHeight), fade);
+
+    painter.fillRect(QRect(0, fadeHeight, width(), qMax(0, height() - fadeHeight)),
+                     QColor(255, 253, 249, 255));
+}
+
 void BottomNavBar::mouseReleaseEvent(QMouseEvent *event)
 {
     if (!event || width() <= 0) {
         QWidget::mouseReleaseEvent(event);
         return;
     }
+
+#ifdef Q_OS_ANDROID
+    const int interactiveTop = qMax(0, height()
+                                          - (LifeBalanceAI::Ui::PlatformLayoutPolicy::bottomNavContentHeight()
+                                             + m_bottomSafeAreaInset));
+    if (event->position().toPoint().y() < interactiveTop) {
+        event->ignore();
+        return;
+    }
+#endif
 
     const int index = qBound(0, (event->position().toPoint().x() * 4) / qMax(1, width()), 3);
     setCurrentIndex(index);
