@@ -1,7 +1,7 @@
 param(
     [string]$EnvFile = ".env",
     [string]$Package = "org.qtproject.example.LifeBalanceAI_demo",
-    [string]$Adb = "D:\AndroidSDK\platform-tools\adb.exe"
+    [string]$Adb = "adb"
 )
 
 $ErrorActionPreference = "Stop"
