@@ -1,70 +1,61 @@
-# 移动端 UI 重构总结
+# 移动端 UI 优化总结
 
-本文档总结 LifeBalanceAI 在移动端 UI 方向的整理与重构重点，用于课程项目展示。
+本文档总结 LifeBalanceAI 在移动端 UI 方向的实现方式和优化重点。内容以项目本身为主体，说明系统如何通过 Qt Widgets、QSS 和自定义组件实现移动端健康管理体验。
 
-## 重构目标
+## 优化目标
 
-- 将项目从桌面端 Qt Demo 整理为更接近移动端 App 的健康管理 Demo。
+- 将 Qt Widgets 桌面开发能力延展到移动端 Demo 场景。
+- 提升登录注册、首页、AI 分析、健康周报、个人中心和弹窗流程在手机屏幕上的可读性。
 - 保持核心业务逻辑、数据库逻辑和 AI 调用逻辑稳定。
-- 通过 QSS、Design Tokens、通用组件和布局策略提升视觉一致性。
-- 让首页、AI 分析、健康周报、个人中心和弹窗在 Android 真机上更易读、易操作。
+- 通过统一样式、布局策略和组件抽象形成更完整的应用展示效果。
 
-## Qt Widgets 移动端适配
+## Qt Widgets 移动端界面实现
 
-- 使用 Qt Widgets 构建移动端界面，保留桌面预览能力。
-- 通过底部导航、侧边栏、移动端弹窗和紧凑卡片组织主流程。
-- 对手机屏幕宽度、控件间距、页面滚动和触摸操作进行适配。
+项目使用 Qt Widgets 构建移动端界面，并通过页面容器、底部导航、侧边栏和弹窗组件组织主流程。界面设计兼顾桌面预览和 Android 真机显示，重点控制页面宽度、控件间距、滚动区域和触摸操作范围。
 
-## QSS 全局样式整理
+代表文件：
 
-- 全局样式集中在 `LifeBalanceAI_demo/resources/style.qss`。
-- 统一按钮、输入框、卡片、弹窗、底部导航等控件风格。
-- 结合 `designtokens.h` 管理常用颜色、圆角、间距和字体风格。
-- 使用 qrc 资源加载图片与字体，减少运行路径依赖。
+- `LifeBalanceAI_demo/mainwindow.cpp`
+- `LifeBalanceAI_demo/mobileshellcontroller.cpp`
+- `LifeBalanceAI_demo/platformlayoutpolicy.cpp`
+- `LifeBalanceAI_demo/bottomnavbar.cpp`
+- `LifeBalanceAI_demo/sidedrawer.cpp`
 
-## 首页布局优化
+## QSS 全局样式统一
 
-- 首页围绕健康计划和每日任务组织信息。
-- 强化饮食、运动、打卡、进度反馈等模块的视觉层级。
-- 减少移动端拥挤感，让关键信息更适合单手浏览。
+全局样式集中在 `LifeBalanceAI_demo/resources/style.qss`。项目通过 QSS 统一按钮、输入框、卡片、弹窗、底部导航、字体和页面背景等视觉元素，并配合 `designtokens.h` 管理颜色、圆角、间距和字号等设计常量。
 
-## AI 分析页优化
+## 首页健康计划布局
 
-- 优化从输入到 AI 分析结果的流程展示。
-- 改善加载状态、错误提示和结果弹窗体验。
-- AI 结果解析逻辑保留在服务层，UI 侧只负责展示与交互。
+首页围绕每日健康计划组织信息，重点展示饮食任务、运动任务、打卡状态和进度反馈。卡片式布局降低了移动端阅读负担，也便于用户快速扫描当天计划。
 
-## 健康周报页优化
+## AI 饮食分析页
 
-- 强化周报内容、趋势图、历史记录之间的信息层级。
-- 使用自定义图表和进度组件提升报告可读性。
-- 保持报告数据与 SQLite 本地存储逻辑解耦。
+AI 分析页承载用户输入、请求状态、分析结果和错误提示。AI 请求和解析逻辑放在 `AIManager`、`airesponseparser` 和相关服务层中，界面侧用于交互组织和结果展示。
 
-## 个人中心和弹窗体验优化
+## AI 报告弹窗
 
-- 优化个人资料、账号操作、反馈入口和退出登录流程。
-- 统一反馈弹窗、AI 报告弹窗、加载遮罩、深度分析弹窗的视觉风格。
-- 提升移动端触摸区域、按钮层级和弹窗关闭体验。
+项目使用移动端弹窗展示 AI 分析报告、深度分析内容和操作反馈。弹窗支持长内容滚动，避免报告文本在小屏幕上溢出。
+
+## 健康周报页
+
+健康周报页整合周报内容、趋势图和历史报告。项目使用自定义图表与进度组件提升报告可读性，使周期性健康反馈更适合移动端浏览。
+
+## 个人中心与侧边栏
+
+个人中心整合个人资料、账号设置、反馈入口和退出登录操作。侧边栏提供补充导航入口，配合底部导航形成更完整的移动端信息架构。
+
+## 移动端弹窗体验
+
+项目包含反馈弹窗、退出确认、加载遮罩、AI 报告弹窗和深度分析弹窗。弹窗设计关注触摸区域、内容滚动、按钮层级和关闭反馈。
 
 ## Android 真机适配
 
-- 增加 Android Manifest 与启动图标资源。
-- 配置 Android OpenSSL 动态库，支持 HTTPS AI 请求。
-- 提供设备侧 `.env` 推送脚本，避免将真实 API Key 写入仓库。
+项目包含 Android Manifest、启动图标资源和 OpenSSL 动态库配置。Android 调试时可通过 `tools/android_push_env.ps1` 将本地 `.env` 推送到 App 私有目录，避免将真实 API Key 写入仓库。
 
-## 代表文件
+## 后续优化方向
 
-- `LifeBalanceAI_demo/mainwindow.cpp`
-- `LifeBalanceAI_demo/resources/style.qss`
-- `LifeBalanceAI_demo/designtokens.h`
-- `LifeBalanceAI_demo/platformlayoutpolicy.cpp`
-- `LifeBalanceAI_demo/mobileshellcontroller.cpp`
-- `LifeBalanceAI_demo/bottomnavbar.cpp`
-- `LifeBalanceAI_demo/sidedrawer.cpp`
-- `LifeBalanceAI_demo/animateddialog.cpp`
-- `LifeBalanceAI_demo/deepanalysisdialog.cpp`
-- `LifeBalanceAI_demo/feedbackdialog.cpp`
-
-## 说明
-
-本次整理只处理仓库展示、文档、忽略规则和误提交文件清理，不重写核心业务逻辑、数据库逻辑或 AI 调用逻辑。
+- 在真实设备上补充更多尺寸和安全区回归测试。
+- 增加正式演示截图和短视频。
+- 进一步拆分大型界面文件，减少页面逻辑耦合。
+- 对报告页和 AI 分析页增加更多数据可视化组件。

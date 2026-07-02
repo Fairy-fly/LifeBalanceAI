@@ -48,6 +48,7 @@ _debug_*.png
 # Python/cache artifacts from local tooling
 __pycache__/
 **/__pycache__/
+**pycache**/
 docx_render_api_summary/
 *.py[cod]
 *.pyc
