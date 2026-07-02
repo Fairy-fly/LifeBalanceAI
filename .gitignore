@@ -3,6 +3,15 @@ build/
 LifeBalanceAI_demo/build/
 **/build/
 LifeBalanceAI_demo/build_test/
+build-*/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+install_manifest.txt
+*.cmake.user
+*.apk
+*.aab
 
 # Local secrets and runtime data
 .config/
@@ -15,6 +24,9 @@ lifebalance.db
 # Qt Creator and local IDE state
 *.user
 *.user.*
+*.pro.user
+*.pro.user.*
+.qmake.stash
 LifeBalanceAI_demo/.qtcreator/
 
 # Generated exports and verification artifacts
@@ -35,15 +47,23 @@ _debug_*.png
 
 # Python/cache artifacts from local tooling
 __pycache__/
+**/__pycache__/
+docx_render_api_summary/
 *.py[cod]
+*.pyc
+*.pyo
+*.pyd
+*.dist-info/
+.venv/
+venv/
 _*.py
 fix_*.py
 check_chars.py
 fix_dialog.ps1
 logs/
+*.log
 !tools/
-!tools/legacy/
-!tools/legacy/**
 
 # Local archives and attachments
 .codex-remote-attachments/
+.claude/

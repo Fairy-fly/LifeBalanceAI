@@ -271,6 +271,10 @@ if (NOT ANDROID)
 endif()
 
 if (ANDROID)
+    set_property(TARGET LifeBalanceAI_demo PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR
+        "${CMAKE_CURRENT_SOURCE_DIR}/android"
+    )
+
     set(ANDROID_OPENSSL_LIB_DIR
         "${CMAKE_CURRENT_SOURCE_DIR}/third_party/android_openssl/ssl_3/${CMAKE_ANDROID_ARCH_ABI}")
     set_property(TARGET LifeBalanceAI_demo PROPERTY QT_ANDROID_EXTRA_LIBS
