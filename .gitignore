@@ -40,6 +40,7 @@ phone_*.png
 *_log.txt
 *_verify.txt
 _debug_*.png
+screenshots/_*.png
 !docs/
 !docs/archive/
 !docs/archive/verification/

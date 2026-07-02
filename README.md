@@ -87,11 +87,11 @@ Copy-Item LifeBalanceAI_demo\.env.example LifeBalanceAI_demo\.env
 
 真实 API Key、数据库文件、构建产物和本机配置文件不应提交到 Git。
 
-## Android 构建说明
+## Android 真机运行说明
 
 项目包含 Android 包资源目录 `LifeBalanceAI_demo/android/`，并在 CMake 中配置 `QT_ANDROID_PACKAGE_SOURCE_DIR`。Android 端 HTTPS 请求依赖 `LifeBalanceAI_demo/third_party/android_openssl/ssl_3/` 下对应 ABI 的 OpenSSL 动态库。
 
-Android 构建注意事项：
+Android 真机运行注意事项：
 
 - 在 Qt Creator 中配置 JDK、Android SDK、Android NDK 和 Gradle。
 - 选择与设备 ABI 匹配的 Android Kit。
@@ -102,20 +102,25 @@ Android 构建注意事项：
 
 ## 页面截图
 
-当前仓库未提交正式展示截图。本次整理未生成新截图，原因是当前执行环境没有可用的 `cmake` / Qt Kit，无法真实构建并运行应用。
+以下截图来自 Android 真机运行的 `org.qtproject.example.LifeBalanceAI_demo`，使用非真实演示账号与演示数据采集。AI 报告截图展示当前真机运行中的报告/导出能力入口状态，未伪造成已生成报告。
 
-截图占位清单见 [screenshots/README.md](screenshots/README.md)。后续补充真实截图后，可在本节引用：
+| 登录页 | 首页 |
+| --- | --- |
+| ![登录页](screenshots/login.png) | ![首页](screenshots/home.png) |
 
-```markdown
-![登录页](screenshots/login.png)
-![首页](screenshots/home.png)
-![AI 分析页](screenshots/ai-analysis.png)
-![AI 报告弹窗](screenshots/ai-report-dialog.png)
-![健康周报页](screenshots/weekly-report.png)
-![个人中心](screenshots/profile.png)
-![侧边栏](screenshots/side-drawer.png)
-![退出确认](screenshots/logout-confirm.png)
-```
+| AI 分析页 | AI 报告入口 |
+| --- | --- |
+| ![AI 分析页](screenshots/ai-analysis.png) | ![AI 报告入口](screenshots/ai-report-dialog.png) |
+
+| 健康周报页 | 个人中心 |
+| --- | --- |
+| ![健康周报页](screenshots/weekly-report.png) | ![个人中心](screenshots/profile.png) |
+
+| 侧边栏 | 退出确认 |
+| --- | --- |
+| ![侧边栏](screenshots/side-drawer.png) | ![退出确认](screenshots/logout-confirm.png) |
+
+截图文件说明见 [screenshots/README.md](screenshots/README.md)。
 
 ## 数据库说明
 
@@ -153,6 +158,10 @@ Android 构建注意事项：
 - 优化 Android 打包、签名、安装和发布体验。
 - 增加更多测试数据、演示数据和端到端演示流程。
 - 继续拆分大型界面文件，沉淀更清晰的页面组件边界。
+
+## License
+
+本仓库当前未提供独立开源许可证文件。若用于课程展示、作品集或继续开源发布，建议后续根据发布范围补充合适的 License。
 
 ## GitHub About 推荐
 

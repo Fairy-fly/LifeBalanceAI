@@ -1,23 +1,28 @@
-# 截图待补充清单
+# 截图说明
 
-当前仓库未提交正式展示截图。本次整理没有生成新截图，原因是当前执行环境没有可用的 `cmake` / Qt Kit，无法真实构建并运行应用。
+本目录保存 LifeBalanceAI 的 GitHub 展示截图。当前截图来自 Android 真机运行的 `org.qtproject.example.LifeBalanceAI_demo`，通过 ADB `screencap` 采集并导出。
 
-后续请使用 Android 真机或桌面预览补充以下真实截图，不要使用伪造图片：
+截图使用非真实演示账号采集：
 
-| 页面 | 建议文件名 |
-| --- | --- |
-| 登录页 | `login.png` |
-| 首页 | `home.png` |
-| AI 分析页 | `ai-analysis.png` |
-| AI 报告弹窗 | `ai-report-dialog.png` |
-| 健康周报页 | `weekly-report.png` |
-| 个人中心 | `profile.png` |
-| 侧边栏 | `side-drawer.png` |
-| 退出确认 | `logout-confirm.png` |
+- 昵称：`DemoUser`
+- 手机号：`19900000000`
+- 数据：演示画像与空状态健康记录
 
-截图建议：
+## 截图清单
 
-- 尽量使用同一台 Android 设备或同一模拟器尺寸。
-- 使用最终展示主题，默认建议浅色主题。
-- 首页、周报和 AI 页面建议准备真实但不敏感的演示数据。
-- 不要展示 API Key、手机号、真实健康数据等隐私信息。
+| 页面 | 文件 | 说明 |
+| --- | --- | --- |
+| 登录页 | `login.png` | 登录表单与演示账号状态 |
+| 首页 | `home.png` | 今日计划、长期目标、底部导航 |
+| AI 分析页 | `ai-analysis.png` | AI 健康洞察入口与移动端布局 |
+| AI 报告入口 | `ai-report-dialog.png` | 真机运行中的报告/导出能力入口状态，未伪造成已生成报告 |
+| 健康周报页 | `weekly-report.png` | 周报说明、完成率与趋势图 |
+| 个人中心 | `profile.png` | 演示账号资料与画像信息 |
+| 侧边栏 | `side-drawer.png` | 移动端抽屉导航与账号入口 |
+| 退出确认 | `logout-confirm.png` | 移动端退出登录确认弹窗 |
+
+## 后续补充建议
+
+- 如后续配置可用 AI Key 并生成真实报告，可重新采集 `ai-report-dialog.png`，但不要提交 API Key 或真实请求日志。
+- 如补充更多演示数据，建议使用虚构账号和虚构健康记录，避免展示真实手机号、真实姓名、真实健康数据。
+- 如发布 APK，请通过 GitHub Release 单独上传，不要直接提交到仓库。
