@@ -162,8 +162,3 @@ Android 真机运行注意事项：
 ## License
 
 本仓库当前未提供独立开源许可证文件。若用于课程展示、作品集或继续开源发布，建议后续根据发布范围补充合适的 License。
-
-## GitHub About 推荐
-
-- Description: `Qt Widgets and C++ mobile health management demo with AI diet analysis, weekly reports, SQLite storage, and Android UI adaptation.`
-- Topics: `qt`, `cpp`, `qt-widgets`, `sqlite`, `android`, `health-management`, `mobile-ui`, `qss`, `course-design`, `ai-demo`
